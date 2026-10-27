@@ -285,6 +285,22 @@
         </div>
     </div>
 
+    <!-- 刪除行李確認 Modal (帶有雲端刪除 Checkbox) -->
+    <div id="checklist-delete-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="neo-box bg-white p-5 rounded-xl max-w-xs w-full space-y-4">
+            <h3 class="font-black text-lg text-red-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 移除確認</h3>
+            <p id="delete-modal-text" class="text-xs font-bold text-gray-700"></p>
+            <div class="bg-gray-50 p-3 neo-box-sm rounded-lg flex items-center gap-2">
+                <input type="checkbox" id="delete-cloud-checkbox" class="w-4 h-4 accent-red-600 cursor-pointer">
+                <label for="delete-cloud-checkbox" class="text-xs font-bold text-red-700 cursor-pointer">同時從雲端刪除（所有人同步刪除）</label>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button onclick="closeChecklistDeleteModal()" class="neo-button bg-gray-200 px-4 py-1.5 font-bold text-sm rounded-lg">取消</button>
+                <button onclick="confirmChecklistDelete()" class="neo-button bg-red-300 px-4 py-1.5 font-black text-sm rounded-lg">確認移除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK 引入 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -331,6 +347,7 @@
 
         let appData = JSON.parse(JSON.stringify(defaultData));
         let activeDay = 1;
+        let pendingDeleteId = null; // 記錄當前準備刪除嘅 item ID
 
         // 即時監聽 Firestore 資料變更（實現多裝置實時同步）
         const syncStatus = document.getElementById('sync-status');
@@ -512,7 +529,7 @@
                         <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-black cursor-pointer" onchange="toggleLocalCheck(${item.id})">
                         <span class="font-bold text-sm">${item.text}</span>
                     </div>
-                    <button onclick="hideLocalChecklistItem(${item.id}); event.stopPropagation();" class="text-xs text-red-400 font-bold hover:text-red-600">移除</button>
+                    <button onclick="openChecklistDeleteModal(${item.id}, '${item.text.replace(/'/g, "\\'")}'); event.stopPropagation();" class="text-xs text-red-400 font-bold hover:text-red-600">移除</button>
                 `;
                 container.appendChild(div);
             });
@@ -538,12 +555,38 @@
             saveData(); // 儲存到 Firebase 讓大家同步見到
         }
 
-        window.hideLocalChecklistItem = function(id) {
-            const { checked, hidden } = getLocalChecklistState();
-            if (!hidden.includes(id)) {
-                hidden.push(id);
+        // 開啟刪除確認 Modal
+        window.openChecklistDeleteModal = function(id, text) {
+            pendingDeleteId = id;
+            document.getElementById('delete-modal-text').innerText = `確定要移除「${text}」嗎？`;
+            document.getElementById('delete-cloud-checkbox').checked = false; // 預設唔勾選雲端刪除
+            document.getElementById('checklist-delete-modal').classList.remove('hidden');
+        }
+
+        // 關閉刪除確認 Modal
+        window.closeChecklistDeleteModal = function() {
+            pendingDeleteId = null;
+            document.getElementById('checklist-delete-modal').classList.add('hidden');
+        }
+
+        // 確認刪除邏輯
+        window.confirmChecklistDelete = function() {
+            if (pendingDeleteId === null) return;
+            const deleteCloud = document.getElementById('delete-cloud-checkbox').checked;
+
+            if (deleteCloud) {
+                // 從雲端 (Firebase) 徹底刪除
+                appData.checklistItems = appData.checklistItems.filter(i => i.id !== pendingDeleteId);
+                saveData();
+            } else {
+                // 只喺本地隱藏
+                const { checked, hidden } = getLocalChecklistState();
+                if (!hidden.includes(pendingDeleteId)) {
+                    hidden.push(pendingDeleteId);
+                }
+                saveLocalChecklistState(checked, hidden);
             }
-            saveLocalChecklistState(checked, hidden); // 只在本地隱藏/移除，不影響其他人
+            closeChecklistDeleteModal();
         }
     </script>
 </body>
