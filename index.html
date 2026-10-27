@@ -64,7 +64,7 @@
         }
         .xmas-button:active {
             transform: translate(2px, 2px);
-            box-shadow: 1px 1px 0px #234E42;
+            box-shadow: 1px 1px 0px #1e1e1e;
         }
     </style>
 </head>
@@ -260,7 +260,7 @@
         <section id="section-checklist" class="hidden space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
-                    <i class="fa-solid fa-gift mr-1"></i> 聖誕行李清單
+                    <i class="fa-solid fa-gift mr-1"></i> 待辦清單
                 </h2>
                 <span class="text-xs font-bold bg-xmas-lightGreen text-xmas-green px-2.5 py-1 xmas-box-sm">雲端新增 + 本地勾選</span>
             </div>
@@ -270,7 +270,7 @@
                     <!-- 動態載入清單 -->
                 </div>
                 <div class="flex gap-2 mt-4 pt-3 border-t-2 border-dashed border-gray-200">
-                    <input type="text" id="new-item-input" placeholder="新增行李項目..." class="flex-1 xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50">
+                    <input type="text" id="new-item-input" placeholder="新增待辦項目..." class="flex-1 xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50">
                     <button onclick="addChecklistItem()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">
                         <i class="fa-solid fa-plus mr-1"></i> 新增
                     </button>
@@ -280,10 +280,10 @@
 
     </main>
 
-    <!-- 新增行程 Modal -->
+    <!-- 新增 / 編輯行程 Modal -->
     <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="xmas-box bg-white p-5 max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 class="font-black text-lg text-xmas-green"><i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目</h3>
+            <h3 id="modal-title" class="font-black text-lg text-xmas-green"><i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目</h3>
             <div>
                 <label class="text-xs font-bold block mb-1">時間 (例如: 10:00)</label>
                 <input type="text" id="input-time" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="10:00">
@@ -296,9 +296,15 @@
                 <label class="text-xs font-bold block mb-1">詳細說明 / 備註</label>
                 <textarea id="input-desc" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="欣賞燈飾與品嚐熱紅酒..."></textarea>
             </div>
-            <div class="flex gap-2 justify-end pt-2">
-                <button onclick="closeAddModal()" class="xmas-button bg-gray-200 px-4 py-2 font-bold text-sm">取消</button>
-                <button onclick="saveNewItem()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">儲存</button>
+            <div class="flex justify-between items-center pt-2">
+                <!-- 刪除按鈕（只在編輯模式顯示） -->
+                <button id="modal-delete-btn" onclick="deleteCurrentEditingItem()" class="xmas-button bg-red-100 text-xmas-red px-3.5 py-2 font-black text-sm hidden">
+                    <i class="fa-solid fa-trash-can mr-1"></i> 刪除行程
+                </button>
+                <div class="flex gap-2 ml-auto">
+                    <button onclick="closeAddModal()" class="xmas-button bg-gray-200 px-4 py-2 font-bold text-sm">取消</button>
+                    <button onclick="saveNewItem()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">儲存</button>
+                </div>
             </div>
         </div>
     </div>
@@ -366,6 +372,7 @@
 
         let appData = JSON.parse(JSON.stringify(defaultData));
         let activeDay = 1;
+        let editingScheduleIndex = null; // 記錄目前編輯緊邊個行程 index（null 代表新增）
         let pendingDeleteId = null;
 
         // 即時監聽 Firestore 資料變更
@@ -484,7 +491,9 @@
                                 <h4 class="font-black text-sm mt-1.5 text-gray-800">${item.title}</h4>
                                 <p class="text-xs font-bold text-gray-600 mt-0.5">${item.desc}</p>
                             </div>
-                            <button onclick="deleteScheduleItem(${index})" class="text-xs font-bold text-gray-400 hover:text-xmas-red px-1.5 py-0.5"><i class="fa-solid fa-xmark"></i></button>
+                            <div>
+                                <button onclick="openAddModal(${index})" class="text-xs font-bold text-blue-600 hover:text-blue-800 px-2 py-1" title="編輯行程"><i class="fa-solid fa-pen"></i></button>
+                            </div>
                         </div>
                     `;
                 });
@@ -493,16 +502,37 @@
             container.innerHTML = html;
         }
 
-        // 新增行程相關 Modal
-        window.openAddModal = function() {
+        // 開啟 新增 / 編輯行程 Modal
+        window.openAddModal = function(index = null) {
+            editingScheduleIndex = index;
+            const modalTitle = document.getElementById('modal-title');
+            const deleteBtn = document.getElementById('modal-delete-btn');
+            
+            if (index !== null) {
+                modalTitle.innerHTML = `<i class="fa-regular fa-pen-to-square mr-1"></i> 編輯行程項目`;
+                const item = appData.schedule[activeDay][index];
+                document.getElementById('input-time').value = item.time || '';
+                document.getElementById('input-title').value = item.title || '';
+                document.getElementById('input-desc').value = item.desc || '';
+                deleteBtn.classList.remove('hidden'); // 編輯時顯示刪除按鈕
+            } else {
+                modalTitle.innerHTML = `<i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目`;
+                document.getElementById('input-time').value = '';
+                document.getElementById('input-title').value = '';
+                document.getElementById('input-desc').value = '';
+                deleteBtn.classList.add('hidden'); // 新增時隱藏刪除按鈕
+            }
             document.getElementById('add-modal').classList.remove('hidden');
         }
+
         window.closeAddModal = function() {
+            editingScheduleIndex = null;
             document.getElementById('add-modal').classList.add('hidden');
             document.getElementById('input-time').value = '';
             document.getElementById('input-title').value = '';
             document.getElementById('input-desc').value = '';
         }
+
         window.saveNewItem = function() {
             const time = document.getElementById('input-time').value || '未定';
             const title = document.getElementById('input-title').value;
@@ -514,14 +544,26 @@
             if (!appData.schedule[activeDay]) {
                 appData.schedule[activeDay] = [];
             }
-            appData.schedule[activeDay].push({ time, title, desc });
+
+            if (editingScheduleIndex !== null) {
+                // 更新現有行程
+                appData.schedule[activeDay][editingScheduleIndex] = { time, title, desc };
+            } else {
+                // 新增行程
+                appData.schedule[activeDay].push({ time, title, desc });
+            }
+
             saveData();
             closeAddModal();
         }
-        window.deleteScheduleItem = function(index) {
-            if (confirm('確定刪除這個行程？')) {
-                appData.schedule[activeDay].splice(index, 1);
+
+        // 編輯彈窗內的刪除行程（連 confirm dialog）
+        window.deleteCurrentEditingItem = function() {
+            if (editingScheduleIndex === null) return;
+            if (confirm('確定要刪除這個行程嗎？')) {
+                appData.schedule[activeDay].splice(editingScheduleIndex, 1);
                 saveData();
+                closeAddModal();
             }
         }
 
