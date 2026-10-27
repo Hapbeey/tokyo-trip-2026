@@ -328,7 +328,7 @@
     <!-- Firebase SDK 引入 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ==========================================
         // Firebase 設定
@@ -345,195 +345,33 @@
         // 初始化 Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+
+        // 嘗試啟用離線持久化緩存（解決部分網絡連線卡住問題）
+        try {
+            enableIndexedDbPersistence(db).catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+                } else if (err.code == 'unimplemented') {
+                    console.warn("The current browser does not support all of the features required to enable persistence");
+                }
+            });
+        } catch (err) {
+            console.error(err);
+        }
+
         const docRef = doc(db, "trips", "tokyo_2026");
 
         // 預設資料
         const defaultData = {
             currentDay: 1,
             schedule: {
-                1: [{ time: "10:50", title: "香港起飛 (UO870)", desc: "前往香港國際機場客運大樓 2 辦理登機" }, { time: "15:55", title: "抵達成田機場", desc: "入境、領取行李並乘搭火車前往東京市區酒店" }],
+                1: [{ time: "10:50", title: "香港起飛 (UO870)", desc: "前往香港國際機場客運大樓 2 辦理登機" }, { time: "15:55", title: "抵達成田機場", desc: "入境, 領取行李並乘搭火車前往東京市區酒店" }],
                 2: [{ time: "09:00", title: "靜岡專屬行程 (DAY 2)", desc: "行程內容待補 (欣賞富士山與冬景)" }],
                 3: [{ time: "09:00", title: "靜岡專屬行程 (DAY 3)", desc: "行程內容待補 (溫泉與當地美食)" }],
                 4: [{ time: "09:00", title: "靜岡專屬行程 (DAY 4)", desc: "行程內容待補 (返回東京市區)" }],
                 5: [{ time: "10:00", title: "東京聖誕市集與燈飾", desc: "漫步六本木 / 丸之內欣賞璀璨燈飾" }],
                 6: [{ time: "10:00", title: "東京市區購物探索", desc: "自由活動 / 尋找特色 Cafe" }],
                 7: [{ time: "10:00", title: "東京最後衝刺", desc: "伴手禮採買與美食巡禮" }],
-                8: [{ time: "19:00", title: "成田機場起飛 (UO647)", desc: "回程返抵香港 (23:25)" }]
-            },
-            checklistItems: [
-                { id: 1, text: "香港護照 (有效期 6 個月以上)" },
-                { id: 2, text: "Visit Japan Web 申報" },
-                { id: 3, text: "Suica / PASMO 或 智能電話八達通" },
-                { id: 4, text: "日元現金 / 信用卡" },
-                { id: 5, text: "防寒                  <div class="text-center">
-                        <div class="text-3xl font-black">HKG</div>
-                        <div class="text-xs font-bold text-gray-500">香港國際機場</div>
-                        <div class="text-sm font-black mt-1 text-xmas-green bg-xmas-lightGreen px-2.5 py-0.5 rounded-lg border-2 border-xmas-green">23:25</div>
-                    </div>
-                </div>
-                <div class="text-xs font-bold bg-gray-50 p-2.5 xmas-box-sm text-center mt-2">
-                    <i class="fa-regular fa-calendar-days mr-1 text-xmas-red"></i> 22 12月, 2026, 周二 (回程抵港 T1)
-                </div>
-            </div>
-
-            <!-- 行李與報到須知 -->
-            <div class="xmas-box p-4 bg-gradient-to-br from-red-50 to-amber-50">
-                <h4 class="font-black mb-2 flex items-center gap-2 text-xmas-red">
-                    <i class="fa-solid fa-suitcase-rolling"></i> 行李與冬季保暖提醒
-                </h4>
-                <ul class="text-xs font-bold space-y-1.5 text-gray-800">
-                    <li>• 客運大樓：香港出發 (T2) | 成田回程 (T2) -> 抵港 (T1)</li>
-                    <li>• 隨身行李：手提行李 1 件 + 隨身物品 1 件 (合計 7kg 以內)</li>
-                    <li>• ❄️ 冬季提醒：12月關東與靜岡早晚溫差大，記得準備厚外套與發熱衣！</li>
-                </ul>
-            </div>
-        </section>
-
-        <!-- 3. 每日行程 Section -->
-        <section id="section-schedule" class="hidden space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
-                    <i class="fa-solid fa-map mr-1"></i> 每日行程 (雲端同步)
-                </h2>
-                <button onclick="openAddModal()" class="xmas-button bg-xmas-red text-white px-3.5 py-1.5 text-xs font-black">
-                    <i class="fa-solid fa-plus mr-1"></i> 新增行程
-                </button>
-            </div>
-
-            <!-- 日期橫向切換按鈕 -->
-            <div id="day-tabs" class="flex gap-2 overflow-x-auto pb-2">
-                <!-- 動態生成 DAY 1 - 8 -->
-            </div>
-
-            <!-- 當日行程卡片容器 -->
-            <div id="day-content" class="xmas-box p-5 space-y-4">
-                <!-- 動態載入當日行程 -->
-            </div>
-        </section>
-
-        <!-- 4. 住宿 Section -->
-        <section id="section-hotel" class="hidden space-y-4">
-            <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
-                <i class="fa-solid fa-hotel mr-1"></i> 住宿安排
-            </h2>
-            <div class="xmas-box p-4 space-y-3">
-                <div class="flex justify-between items-center">
-                    <span class="font-black text-lg text-xmas-green"><i class="fa-solid fa-building mr-1"></i> 東京市區酒店</span>
-                    <span class="bg-xmas-lightGreen text-xmas-green text-xs font-black px-2.5 py-1 xmas-box-sm">12/15 - 12/16 & 12/18 - 12/22</span>
-                </div>
-                <p class="text-xs font-bold text-gray-600">待定酒店名稱 (可隨時更新)</p>
-            </div>
-            <div class="xmas-box p-4 space-y-3 bg-gradient-to-r from-emerald-50 to-teal-50">
-                <div class="flex justify-between items-center">
-                    <span class="font-black text-lg text-emerald-800"><i class="fa-solid fa-hot-tub-person mr-1"></i> 靜岡 / 富士山溫泉酒店</span>
-                    <span class="bg-emerald-200 text-emerald-900 text-xs font-black px-2.5 py-1 xmas-box-sm">12/16 - 12/18 (2晚)</span>
-                </div>
-                <p class="text-xs font-bold text-gray-600">靜岡專屬溫泉行程住宿 (待定)</p>
-            </div>
-        </section>
-
-        <!-- 5. 清單 Section -->
-        <section id="section-checklist" class="hidden space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
-                    <i class="fa-solid fa-gift mr-1"></i> 待辦清單
-                </h2>
-                <span class="text-xs font-bold bg-xmas-lightGreen text-xmas-green px-2.5 py-1 xmas-box-sm">雲端新增 + 本地勾選</span>
-            </div>
-            
-            <div class="xmas-box p-4 space-y-3">
-                <div id="checklist-items" class="space-y-2">
-                    <!-- 動態載入清單 -->
-                </div>
-                <div class="flex gap-2 mt-4 pt-3 border-t-2 border-dashed border-gray-200">
-                    <input type="text" id="new-item-input" placeholder="新增待辦項目..." class="flex-1 xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50">
-                    <button onclick="addChecklistItem()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">
-                        <i class="fa-solid fa-plus mr-1"></i> 新增
-                    </button>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- 新增 / 編輯行程 Modal -->
-    <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="xmas-box bg-white p-5 max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 id="modal-title" class="font-black text-lg text-xmas-green"><i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目</h3>
-            <div>
-                <label class="text-xs font-bold block mb-1">時間 (例如: 10:00)</label>
-                <input type="text" id="input-time" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="10:00">
-            </div>
-            <div>
-                <label class="text-xs font-bold block mb-1">標題 / 景點名稱</label>
-                <input type="text" id="input-title" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="東京車站聖誕市集">
-            </div>
-            <div>
-                <label class="text-xs font-bold block mb-1">詳細說明 / 備註</label>
-                <textarea id="input-desc" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="欣賞燈飾與品嚐熱紅酒..."></textarea>
-            </div>
-            <div class="flex justify-between items-center pt-2">
-                <!-- 刪除按鈕（只在編輯模式顯示） -->
-                <button id="modal-delete-btn" onclick="deleteCurrentEditingItem()" class="xmas-button bg-red-100 text-xmas-red px-3.5 py-2 font-black text-sm hidden">
-                    <i class="fa-solid fa-trash-can mr-1"></i> 刪除行程
-                </button>
-                <div class="flex gap-2 ml-auto">
-                    <button onclick="closeAddModal()" class="xmas-button bg-gray-200 px-4 py-2 font-bold text-sm">取消</button>
-                    <button onclick="saveNewItem()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">儲存</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 刪除行李確認 Modal -->
-    <div id="checklist-delete-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="xmas-box bg-white p-5 max-w-xs w-full space-y-4 shadow-2xl">
-            <h3 class="font-black text-lg text-xmas-red"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 移除確認</h3>
-            <p id="delete-modal-text" class="text-xs font-bold text-gray-700"></p>
-            <div class="bg-gray-50 p-3 xmas-box-sm flex items-center gap-2">
-                <input type="checkbox" id="delete-cloud-checkbox" class="w-4 h-4 accent-xmas-red cursor-pointer">
-                <label for="delete-cloud-checkbox" class="text-xs font-bold text-xmas-red cursor-pointer">同時從雲端刪除（所有人同步刪除）</label>
-            </div>
-            <div class="flex gap-2 justify-end pt-2">
-                <button onclick="closeChecklistDeleteModal()" class="xmas-button bg-gray-200 px-4 py-2 font-bold text-sm">取消</button>
-                <button onclick="confirmChecklistDelete()" class="xmas-button bg-xmas-red text-white px-4 py-2 font-black text-sm">確認移除</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Firebase SDK 引入 -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        // ==========================================
-        // Firebase 設定
-        // ==========================================
-        const firebaseConfig = {
-          apiKey: "AIzaSyAQJatKRC34MbBlyY7pmhQdluf0qKNShJg",
-          authDomain: "tokyo-trip-2026-83a1e.firebaseapp.com",
-          projectId: "tokyo-trip-2026-83a1e",
-          storageBucket: "tokyo-trip-2026-83a1e.firebasestorage.app",
-          messagingSenderId: "161190483036",
-          appId: "1:161190483036:web:7f4d9c000b678de6ec0299"
-        };
-
-        // 初始化 Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const docRef = doc(db, "trips", "tokyo_2026");
-
-        // 預設資料
-        const defaultData = {
-            currentDay: 1,
-            schedule: {
-                1: [{ time: "10:50", title: "香港起飛 (UO870)", desc: "前往香港國際機場客運大樓 2 辦理登機" }, { time: "15:55", title: "抵達成田機場", desc: "入境、領取行李並乘搭火車前往東京市區酒店" }],
-                2: [{ time: "全日", title: "靜岡專屬行程 (DAY 2)", desc: "行程內容待補 (欣賞富士山與冬景)" }],
-                3: [{ time: "全日", title: "靜岡專屬行程 (DAY 3)", desc: "行程內容待補 (溫泉與當地美食)" }],
-                4: [{ time: "全日", title: "靜岡專屬行程 (DAY 4)", desc: "行程內容待補 (返回東京市區)" }],
-                5: [{ time: "上午", title: "東京聖誕市集與燈飾", desc: "漫步六本木 / 丸之內欣賞璀璨燈飾" }],
-                6: [{ time: "上午", title: "東京市區購物探索", desc: "自由活動 / 尋找特色 Cafe" }],
-                7: [{ time: "上午", title: "東京最後衝刺", desc: "伴手禮採買與美食巡禮" }],
                 8: [{ time: "19:00", title: "成田機場起飛 (UO647)", desc: "回程返抵香港 (23:25)" }]
             },
             checklistItems: [
@@ -548,12 +386,15 @@
 
         let appData = JSON.parse(JSON.stringify(defaultData));
         let activeDay = 1;
-        let editingScheduleIndex = null; // 記錄目前編輯緊邊個行程 index（null 代表新增）
+        let editingScheduleIndex = null;
         let pendingDeleteId = null;
 
-        // 即時監聽 Firestore 資料變更
+        // 即時監聽 Firestore 資料變更（加入逾時保護機制，避免長期「連線中」卡死）
         const syncStatus = document.getElementById('sync-status');
-        onSnapshot(docRef, (docSnap) => {
+        let isConnectedOnce = false;
+
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            isConnectedOnce = true;
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 if (data.schedule) appData.schedule = data.schedule;
@@ -572,12 +413,21 @@
             syncStatus.className = "text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 xmas-box-sm flex items-center";
         });
 
+        // 5秒內如果連不上雲端，自動轉為離線模式提示，確保介面流暢可用
+        setTimeout(() => {
+            if (!isConnectedOnce) {
+                syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 離線模式`;
+                syncStatus.className = "text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 xmas-box-sm flex items-center";
+            }
+        }, 5000);
+
         // 儲存資料到 Firestore
         async function saveData() {
             try {
                 await setDoc(docRef, appData);
             } catch (e) {
                 console.error("Error saving: ", e);
+                alert("儲存至雲端失敗，請檢查網絡連線！");
             }
         }
 
@@ -640,11 +490,21 @@
             });
         }
 
-        // 渲染當日行程內容
+        // 渲染當日行程內容（自動按時間排序）
         function renderScheduleContent() {
             const container = document.getElementById('day-content');
-            const items = appData.schedule[activeDay] || [];
+            let items = appData.schedule[activeDay] || [];
             
+            // 自動按時間排序
+            items.sort((a, b) => {
+                const timeA = a.time || '23:59';
+                const timeB = b.time || '23:59';
+                if (timeA === '全日') return -1;
+                if (timeB === '全日') return 1;
+                return timeA.localeCompare(timeB);
+            });
+            appData.schedule[activeDay] = items;
+
             const isShizuoka = [2, 3, 4].includes(activeDay);
             let html = `
                 <div class="flex justify-between items-center pb-3 border-b-2 border-gray-100">
@@ -687,16 +547,16 @@
             if (index !== null) {
                 modalTitle.innerHTML = `<i class="fa-regular fa-pen-to-square mr-1"></i> 編輯行程項目`;
                 const item = appData.schedule[activeDay][index];
-                document.getElementById('input-time').value = item.time || '';
+                document.getElementById('input-time').value = item.time && item.time !== '全日' ? item.time : '10:00';
                 document.getElementById('input-title').value = item.title || '';
                 document.getElementById('input-desc').value = item.desc || '';
-                deleteBtn.classList.remove('hidden'); // 編輯時顯示刪除按鈕
+                deleteBtn.classList.remove('hidden');
             } else {
                 modalTitle.innerHTML = `<i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目`;
-                document.getElementById('input-time').value = '';
+                document.getElementById('input-time').value = '10:00';
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-desc').value = '';
-                deleteBtn.classList.add('hidden'); // 新增時隱藏刪除按鈕
+                deleteBtn.classList.add('hidden');
             }
             document.getElementById('add-modal').classList.remove('hidden');
         }
@@ -710,7 +570,7 @@
         }
 
         window.saveNewItem = function() {
-            const time = document.getElementById('input-time').value || '未定';
+            const time = document.getElementById('input-time').value || '10:00';
             const title = document.getElementById('input-title').value;
             const desc = document.getElementById('input-desc').value;
             if (!title) {
@@ -722,18 +582,25 @@
             }
 
             if (editingScheduleIndex !== null) {
-                // 更新現有行程
                 appData.schedule[activeDay][editingScheduleIndex] = { time, title, desc };
             } else {
-                // 新增行程
                 appData.schedule[activeDay].push({ time, title, desc });
             }
+
+            // 儲存後自動按時間排序
+            appData.schedule[activeDay].sort((a, b) => {
+                const timeA = a.time || '23:59';
+                const timeB = b.time || '23:59';
+                if (timeA === '全日') return -1;
+                if (timeB === '全日') return 1;
+                return timeA.localeCompare(timeB);
+            });
 
             saveData();
             closeAddModal();
         }
 
-        // 編輯彈窗內的刪除行程（連 confirm dialog）
+        // 編輯彈窗內的刪除行程
         window.deleteCurrentEditingItem = function() {
             if (editingScheduleIndex === null) return;
             if (confirm('確定要刪除這個行程嗎？')) {
