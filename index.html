@@ -74,7 +74,7 @@
     <header class="sticky top-0 z-50 bg-[#F9F6F0]/90 backdrop-blur-md border-b-2 border-xmas-green py-3 px-4 shadow-sm">
         <div class="max-w-md mx-auto flex justify-between items-center">
             <h1 class="font-black text-lg bg-xmas-green text-white px-3 py-1 rounded-xl shadow-sm rotate-[-1deg]">
-                🎄 12月東京靜岡聖誕遊 ✨
+                🎄 12月東京靜岡靜遊 ✨
             </h1>
             <div id="sync-status" class="text-xs font-bold text-gray-600 bg-white px-2.5 py-1 xmas-box-sm flex items-center">
                 <i class="fa-solid fa-cloud-arrow-up mr-1 text-xmas-green"></i> 連線中...
@@ -217,7 +217,7 @@
         <section id="section-schedule" class="hidden space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
-                    <i class="fa-solid fa-map mr-1"></i> 每日行程 (雲端同步)
+                    <i class="fa-solid fa-map mr-1"></i> 每日行程
                 </h2>
                 <button onclick="openAddModal()" class="xmas-button bg-xmas-red text-white px-3.5 py-1.5 text-xs font-black">
                     <i class="fa-solid fa-plus mr-1"></i> 新增行程
@@ -232,6 +232,11 @@
             <!-- 當日行程卡片容器 -->
             <div id="day-content" class="xmas-box p-5 space-y-4">
                 <!-- 動態載入當日行程 -->
+            </div>
+
+            <!-- 底部備註 -->
+            <div class="text-[11px] text-gray-400 font-bold px-1">
+                * 行程內容與變更支援即時雲端同步，所有人皆可共同編輯
             </div>
         </section>
 
@@ -262,7 +267,6 @@
                 <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
                     <i class="fa-solid fa-gift mr-1"></i> 待辦清單
                 </h2>
-                <span class="text-xs font-bold bg-xmas-lightGreen text-xmas-green px-2.5 py-1 xmas-box-sm">雲端新增 + 本地勾選</span>
             </div>
             
             <div class="xmas-box p-4 space-y-3">
@@ -275,6 +279,11 @@
                         <i class="fa-solid fa-plus mr-1"></i> 新增
                     </button>
                 </div>
+            </div>
+
+            <!-- 底部備註 -->
+            <div class="text-[11px] text-gray-400 font-bold px-1">
+                * 新增項目會自動同步至雲端，剔選與勾選狀態則僅儲存于本機
             </div>
         </section>
 
@@ -346,14 +355,10 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 嘗試啟用離線持久化緩存（解決部分網絡連線卡住問題）
+        // 嘗試啟用離線持久化緩存
         try {
             enableIndexedDbPersistence(db).catch((err) => {
-                if (err.code == 'failed-precondition') {
-                    console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-                } else if (err.code == 'unimplemented') {
-                    console.warn("The current browser does not support all of the features required to enable persistence");
-                }
+                console.warn("Persistence error:", err);
             });
         } catch (err) {
             console.error(err);
@@ -389,7 +394,7 @@
         let editingScheduleIndex = null;
         let pendingDeleteId = null;
 
-        // 即時監聽 Firestore 資料變更（加入逾時保護機制，避免長期「連線中」卡死）
+        // 即時監聽 Firestore 資料變更
         const syncStatus = document.getElementById('sync-status');
         let isConnectedOnce = false;
 
@@ -413,7 +418,6 @@
             syncStatus.className = "text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 xmas-box-sm flex items-center";
         });
 
-        // 5秒內如果連不上雲端，自動轉為離線模式提示，確保介面流暢可用
         setTimeout(() => {
             if (!isConnectedOnce) {
                 syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 離線模式`;
