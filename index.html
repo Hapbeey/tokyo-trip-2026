@@ -291,7 +291,7 @@
 
     <!-- 新增 / 編輯行程 Modal -->
     <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="xmas-box bg-white p-5 max-w-sm w-full space-y-4 shadow-2xl">
+        <div class="xmas-box bg-white p-5 max-w-sm w-full space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
             <h3 id="modal-title" class="font-black text-lg text-xmas-green"><i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目</h3>
             <div>
                 <label class="text-xs font-bold block mb-1">時間</label>
@@ -299,8 +299,24 @@
             </div>
             <div>
                 <label class="text-xs font-bold block mb-1">標題 / 景點名稱</label>
-                <input type="text" id="input-title" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="東京車站聖誕市集">
+                <input type="text" id="input-title" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="東京車站聖誕市集">
             </div>
+            <div>
+                <label class="text-xs font-bold block mb-1">地點 (Google Maps 定位名稱)</label>
+                <input type="text" id="input-location" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="例如: 東京駅、淺草寺 (若空置則使用標題)">
+            </div>
+            
+            <!-- 內嵌 Google Map 即時預覽 Widget -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-xs font-bold block text-gray-700"><i class="fa-solid fa-map-location-dot text-xmas-red mr-1"></i> 地圖即時預覽</label>
+                    <a id="modal-external-map-link" href="#" target="_blank" class="text-[10px] font-bold text-blue-600 hover:underline">在 Google Maps 開啟 ↗</a>
+                </div>
+                <div class="xmas-box-sm overflow-hidden h-40 bg-gray-100 relative">
+                    <iframe id="map-preview-iframe" class="w-full h-full border-0" loading="lazy" allowfullscreen src="about:blank"></iframe>
+                </div>
+            </div>
+
             <div>
                 <label class="text-xs font-bold block mb-1">詳細說明 / 備註</label>
                 <textarea id="input-desc" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="欣賞燈飾與品嚐熱紅酒..."></textarea>
@@ -370,14 +386,17 @@
         const defaultData = {
             currentDay: 1,
             schedule: {
-                1: [{ time: "10:50", title: "香港起飛 (UO870)", desc: "前往香港國際機場客運大樓 2 辦理登機" }, { time: "15:55", title: "抵達成田機場", desc: "入境, 領取行李並乘搭火車前往東京市區酒店" }],
-                2: [{ time: "09:00", title: "靜岡專屬行程 (DAY 2)", desc: "行程內容待補 (欣賞富士山與冬景)" }],
-                3: [{ time: "09:00", title: "靜岡專屬行程 (DAY 3)", desc: "行程內容待補 (溫泉與當地美食)" }],
-                4: [{ time: "09:00", title: "靜岡專屬行程 (DAY 4)", desc: "行程內容待補 (返回東京市區)" }],
-                5: [{ time: "10:00", title: "東京聖誕市集與燈飾", desc: "漫步六本木 / 丸之內欣賞璀璨燈飾" }],
-                6: [{ time: "10:00", title: "東京市區購物探索", desc: "自由活動 / 尋找特色 Cafe" }],
-                7: [{ time: "10:00", title: "東京最後衝刺", desc: "伴手禮採買與美食巡禮" }],
-                8: [{ time: "19:00", title: "成田機場起飛 (UO647)", desc: "回程返抵香港 (23:25)" }]
+                1: [
+                    { time: "10:50", title: "香港起飛 (UO870)", location: "香港國際機場", desc: "前往香港國際機場客運大樓 2 辦理登機" }, 
+                    { time: "15:55", title: "抵達成田機場", location: "成田國際機場", desc: "入境, 領取行李並乘搭火車前往東京市區酒店" }
+                ],
+                2: [{ time: "09:00", title: "靜岡專屬行程 (DAY 2)", location: "靜岡車站", desc: "行程內容待補 (欣賞富士山與冬景)" }],
+                3: [{ time: "09:00", title: "靜岡專屬行程 (DAY 3)", location: "熱海溫泉", desc: "行程內容待補 (溫泉與當地美食)" }],
+                4: [{ time: "09:00", title: "靜岡專屬行程 (DAY 4)", location: "靜岡", desc: "行程內容待補 (返回東京市區)" }],
+                5: [{ time: "10:00", title: "東京聖誕市集與燈飾", location: "六本木之丘", desc: "漫步六本木 / 丸之內欣賞璀璨燈飾" }],
+                6: [{ time: "10:00", title: "東京市區購物探索", location: "澀谷", desc: "自由活動 / 尋找特色 Cafe" }],
+                7: [{ time: "10:00", title: "東京最後衝刺", location: "銀座", desc: "伴手禮採買與美食巡禮" }],
+                8: [{ time: "19:00", title: "成田機場起飛 (UO647)", location: "成田國際機場", desc: "回程返抵香港 (23:25)" }]
             },
             checklistItems: [
                 { id: 1, text: "香港護照 (有效期 6 個月以上)" },
@@ -525,15 +544,27 @@
                 html += `<p class="text-xs font-bold text-gray-400 text-center py-6">這一天還沒有行程，點擊右上角新增吧！</p>`;
             } else {
                 items.forEach((item, index) => {
+                    const searchLocation = item.location || item.title;
+                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchLocation)}`;
+                    
                     html += `
                         <div class="xmas-box-sm bg-gray-50/70 p-3.5 flex justify-between items-start">
-                            <div>
-                                <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
-                                <h4 class="font-black text-sm mt-1.5 text-gray-800">${item.title}</h4>
-                                <p class="text-xs font-bold text-gray-600 mt-0.5">${item.desc}</p>
+                            <div class="space-y-1 pr-2 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
+                                    
+                                    <!-- 📍 地點 Icon 按鈕 (按下跳轉 Google Maps) -->
+                                    <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="前往 Google Maps 查看地點">
+                                        <i class="fa-solid fa-location-dot text-xmas-red"></i> ${item.location || item.title}
+                                    </a>
+                                </div>
+                                <h4 class="font-black text-sm text-gray-800 mt-1">${item.title}</h4>
+                                <p class="text-xs font-bold text-gray-600">${item.desc || ''}</p>
                             </div>
-                            <div>
-                                <button onclick="openAddModal(${index})" class="text-xs font-bold text-blue-600 hover:text-blue-800 px-2 py-1" title="編輯行程"><i class="fa-solid fa-pen"></i></button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="openAddModal(${index})" class="xmas-button bg-white text-blue-600 px-2.5 py-1 text-xs font-black" title="編輯行程">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
                             </div>
                         </div>
                     `;
@@ -541,6 +572,19 @@
             }
             html += `</div>`;
             container.innerHTML = html;
+        }
+
+        // 動態更新 Modal 入面的 Google Maps 內嵌預覽
+        window.updateMapPreview = function() {
+            const locInput = document.getElementById('input-location').value.trim();
+            const titleInput = document.getElementById('input-title').value.trim();
+            const query = locInput || titleInput || '東京';
+
+            const iframe = document.getElementById('map-preview-iframe');
+            const extLink = document.getElementById('modal-external-map-link');
+
+            iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+            extLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
         }
 
         // 開啟 新增 / 編輯行程 Modal
@@ -554,15 +598,19 @@
                 const item = appData.schedule[activeDay][index];
                 document.getElementById('input-time').value = item.time && item.time !== '全日' ? item.time : '10:00';
                 document.getElementById('input-title').value = item.title || '';
+                document.getElementById('input-location').value = item.location || '';
                 document.getElementById('input-desc').value = item.desc || '';
                 deleteBtn.classList.remove('hidden');
             } else {
                 modalTitle.innerHTML = `<i class="fa-regular fa-pen-to-square mr-1"></i> 新增行程項目`;
                 document.getElementById('input-time').value = '10:00';
                 document.getElementById('input-title').value = '';
+                document.getElementById('input-location').value = '';
                 document.getElementById('input-desc').value = '';
                 deleteBtn.classList.add('hidden');
             }
+            
+            updateMapPreview();
             document.getElementById('add-modal').classList.remove('hidden');
         }
 
@@ -571,12 +619,14 @@
             document.getElementById('add-modal').classList.add('hidden');
             document.getElementById('input-time').value = '';
             document.getElementById('input-title').value = '';
+            document.getElementById('input-location').value = '';
             document.getElementById('input-desc').value = '';
         }
 
         window.saveNewItem = function() {
             const time = document.getElementById('input-time').value || '10:00';
             const title = document.getElementById('input-title').value;
+            const location = document.getElementById('input-location').value;
             const desc = document.getElementById('input-desc').value;
             if (!title) {
                 alert('請輸入行程標題！');
@@ -587,9 +637,9 @@
             }
 
             if (editingScheduleIndex !== null) {
-                appData.schedule[activeDay][editingScheduleIndex] = { time, title, desc };
+                appData.schedule[activeDay][editingScheduleIndex] = { time, title, location, desc };
             } else {
-                appData.schedule[activeDay].push({ time, title, desc });
+                appData.schedule[activeDay].push({ time, title, location, desc });
             }
 
             // 儲存後自動按時間排序
