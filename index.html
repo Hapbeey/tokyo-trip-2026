@@ -544,8 +544,15 @@
                 html += `<p class="text-xs font-bold text-gray-400 text-center py-6">這一天還沒有行程，點擊右上角新增吧！</p>`;
             } else {
                 items.forEach((item, index) => {
-                    const hasLocation = item.location && item.location.trim() !== '';
-                    const mapUrl = hasLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location.trim())}` : '#';
+                    const rawLocation = item.location ? item.location.trim() : '';
+                    const hasLocation = rawLocation !== '';
+                    
+                    // 限制最大顯示 10 個字，超過則補上 ...
+                    const displayLocation = hasLocation 
+                        ? (rawLocation.length > 10 ? rawLocation.substring(0, 10) + '...' : rawLocation)
+                        : '';
+
+                    const mapUrl = hasLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawLocation)}` : '#';
                     
                     html += `
                         <div class="xmas-box-sm bg-gray-50/70 p-3.5 flex justify-between items-start">
@@ -553,10 +560,10 @@
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
                                     
-                                    <!-- 📍 只有當有填寫地點時，才顯示地點 Icon 按鈕 -->
+                                    <!-- 📍 只有當有填寫地點時，才顯示地點 Icon 按鈕（最多顯示10字） -->
                                     ${hasLocation ? `
-                                        <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="前往 Google Maps 查看地點">
-                                            <i class="fa-solid fa-location-dot text-xmas-red"></i> ${item.location.trim()}
+                                        <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="${rawLocation.replace(/"/g, '&quot;')}">
+                                            <i class="fa-solid fa-location-dot text-xmas-red"></i> ${displayLocation}
                                         </a>
                                     ` : ''}
                                 </div>
