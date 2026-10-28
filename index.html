@@ -74,7 +74,7 @@
     <header class="sticky top-0 z-50 bg-[#F9F6F0]/90 backdrop-blur-md border-b-2 border-xmas-green py-3 px-4 shadow-sm">
         <div class="max-w-md mx-auto flex justify-between items-center">
             <h1 class="font-black text-lg bg-xmas-green text-white px-3 py-1 rounded-xl shadow-sm rotate-[-1deg]">
-                🎄 12月東京靜岡靜遊 ✨
+                🎄 12月東京・靜岡聖誕之旅 ✨
             </h1>
             <div id="sync-status" class="text-xs font-bold text-gray-600 bg-white px-2.5 py-1 xmas-box-sm flex items-center">
                 <i class="fa-solid fa-cloud-arrow-up mr-1 text-xmas-green"></i> 連線中...
@@ -466,14 +466,14 @@
             container.innerHTML = '';
             
             const dates = [
-                { day: 1, date: "12/15 (二)" },
-                { day: 2, date: "12/16 (三)", tag: "靜岡" },
-                { day: 3, date: "12/17 (四)", tag: "靜岡" },
-                { day: 4, date: "12/18 (五)", tag: "靜岡" },
-                { day: 5, date: "12/19 (六)" },
-                { day: 6, date: "12/20 (日)" },
-                { day: 7, date: "12/21 (一)" },
-                { day: 8, date: "12/22 (二)" },
+                { day: 1, location: "東京", date: "12/15 (二)" },
+                { day: 2, location: "靜岡", date: "12/16 (三)" },
+                { day: 3, location: "靜岡", date: "12/17 (四)" },
+                { day: 4, location: "靜岡", date: "12/18 (五)" },
+                { day: 5, location: "東京", date: "12/19 (六)" },
+                { day: 6, location: "東京", date: "12/20 (日)" },
+                { day: 7, location: "東京", date: "12/21 (一)" },
+                { day: 8, location: "東京", date: "12/22 (二)" },
             ];
 
             dates.forEach(d => {
@@ -482,7 +482,8 @@
                 const btn = document.createElement('button');
                 btn.className = `xmas-button px-3.5 py-2 rounded-xl text-center whitespace-nowrap transition ${isSelected ? (isShizuoka ? 'bg-emerald-600 text-white' : 'bg-xmas-green text-white') : (isShizuoka ? 'bg-emerald-50 text-emerald-900' : 'bg-white text-gray-800')}`;
                 btn.innerHTML = `
-                    <div class="text-[10px] font-bold opacity-80">${d.tag || 'DAY ' + d.day}</div>
+                    <div class="text-[10px] font-bold opacity-80">DAY ${d.day}</div>
+                    <div class="text-xs font-black my-0.5">${d.location}</div>
                     <div class="font-black text-sm">${d.date}</div>
                 `;
                 btn.onclick = () => {
