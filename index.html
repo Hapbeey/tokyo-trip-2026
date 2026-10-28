@@ -302,8 +302,8 @@
                 <input type="text" id="input-title" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="東京車站聖誕市集">
             </div>
             <div>
-                <label class="text-xs font-bold block mb-1">地點 (選填，用於 Google Maps 定位)</label>
-                <input type="text" id="input-location" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="例如: 東京駅、淺草寺 (未填寫則隱藏地圖Icon)">
+                <label class="text-xs font-bold block mb-1">地點 (可填寫名稱或貼上 Google Maps 網址)</label>
+                <input type="text" id="input-location" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="例如: 東京駅 或 https://maps.app.goo.gl/...">
             </div>
             
             <!-- 內嵌 Google Map 即時預覽 Widget -->
@@ -479,6 +479,15 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // 判斷字串是否為 URL
+        function isValidUrl(str) {
+            try {
+                return str.startsWith('http://') || str.startsWith('https://');
+            } catch (e) {
+                return false;
+            }
+        }
+
         // 渲染每日行程日期按鈕 (DAY 1 - 8)
         function renderScheduleTabs() {
             const container = document.getElementById('day-tabs');
@@ -546,13 +555,20 @@
                 items.forEach((item, index) => {
                     const rawLocation = item.location ? item.location.trim() : '';
                     const hasLocation = rawLocation !== '';
-                    
-                    // 限制最大顯示 10 個字，超過則補上 ...
-                    const displayLocation = hasLocation 
-                        ? (rawLocation.length > 10 ? rawLocation.substring(0, 10) + '...' : rawLocation)
-                        : '';
+                    const isUrl = isValidUrl(rawLocation);
 
-                    const mapUrl = hasLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawLocation)}` : '#';
+                    // 決定超連結 URL
+                    const mapUrl = isUrl ? rawLocation : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawLocation)}`;
+                    
+                    // 決定按鈕顯示文字（網址顯為 📍 網址連結，地名限制 10 字）
+                    let displayLocation = '';
+                    if (hasLocation) {
+                        if (isUrl) {
+                            displayLocation = '地圖連結';
+                        } else {
+                            displayLocation = rawLocation.length > 10 ? rawLocation.substring(0, 10) + '...' : rawLocation;
+                        }
+                    }
                     
                     html += `
                         <div class="xmas-box-sm bg-gray-50/70 p-3.5 flex justify-between items-start">
@@ -560,7 +576,7 @@
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
                                     
-                                    <!-- 📍 只有當有填寫地點時，才顯示地點 Icon 按鈕（最多顯示10字） -->
+                                    <!-- 📍 地點 Icon 按鈕（支援純文字或 URL 點擊跳轉） -->
                                     ${hasLocation ? `
                                         <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="${rawLocation.replace(/"/g, '&quot;')}">
                                             <i class="fa-solid fa-location-dot text-xmas-red"></i> ${displayLocation}
@@ -592,8 +608,14 @@
             const iframe = document.getElementById('map-preview-iframe');
             const extLink = document.getElementById('modal-external-map-link');
 
-            iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
-            extLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+            if (isValidUrl(locInput)) {
+                // 如果輸入的是 URL，外部連結直接帶入該 URL，內嵌顯示提示
+                extLink.href = locInput;
+                iframe.src = locInput.includes('embed') ? locInput : `https://maps.google.com/maps?q=${encodeURIComponent(titleInput || '東京')}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+            } else {
+                iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+                extLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+            }
         }
 
         // 開啟 新增 / 編輯行程 Modal
@@ -616,7 +638,7 @@
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-location').value = '';
                 document.getElementById('input-desc').value = '';
-                deleteBtn.classList.add('hidden');
+                deleteBtn.add('hidden');
             }
             
             updateMapPreview();
