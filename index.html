@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎄 12月聖誕之旅 ✨</title>
+    <title>🎄 12月東京・靜岡聖誕之旅 ✨</title>
     <!-- 引入 Google Fonts 圓體 -->
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
@@ -302,8 +302,8 @@
                 <input type="text" id="input-title" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="東京車站聖誕市集">
             </div>
             <div>
-                <label class="text-xs font-bold block mb-1">地點 (Google Maps 定位名稱)</label>
-                <input type="text" id="input-location" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="例如: 東京駅、淺草寺 (若空置則使用標題)">
+                <label class="text-xs font-bold block mb-1">地點 (選填，用於 Google Maps 定位)</label>
+                <input type="text" id="input-location" oninput="updateMapPreview()" class="w-full xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50" placeholder="例如: 東京駅、淺草寺 (未填寫則隱藏地圖Icon)">
             </div>
             
             <!-- 內嵌 Google Map 即時預覽 Widget -->
@@ -392,7 +392,7 @@
                 ],
                 2: [{ time: "09:00", title: "靜岡專屬行程 (DAY 2)", location: "靜岡車站", desc: "行程內容待補 (欣賞富士山與冬景)" }],
                 3: [{ time: "09:00", title: "靜岡專屬行程 (DAY 3)", location: "熱海溫泉", desc: "行程內容待補 (溫泉與當地美食)" }],
-                4: [{ time: "09:00", title: "靜岡專屬行程 (DAY 4)", location: "靜岡", desc: "行程內容待補 (返回東京市區)" }],
+                4: [{ time: "09:00", title: "靜岡專屬行程 (DAY 4)", location: "", desc: "行程內容待補 (返回東京市區)" }],
                 5: [{ time: "10:00", title: "東京聖誕市集與燈飾", location: "六本木之丘", desc: "漫步六本木 / 丸之內欣賞璀璨燈飾" }],
                 6: [{ time: "10:00", title: "東京市區購物探索", location: "澀谷", desc: "自由活動 / 尋找特色 Cafe" }],
                 7: [{ time: "10:00", title: "東京最後衝刺", location: "銀座", desc: "伴手禮採買與美食巡禮" }],
@@ -544,8 +544,8 @@
                 html += `<p class="text-xs font-bold text-gray-400 text-center py-6">這一天還沒有行程，點擊右上角新增吧！</p>`;
             } else {
                 items.forEach((item, index) => {
-                    const searchLocation = item.location || item.title;
-                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchLocation)}`;
+                    const hasLocation = item.location && item.location.trim() !== '';
+                    const mapUrl = hasLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location.trim())}` : '#';
                     
                     html += `
                         <div class="xmas-box-sm bg-gray-50/70 p-3.5 flex justify-between items-start">
@@ -553,10 +553,12 @@
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
                                     
-                                    <!-- 📍 地點 Icon 按鈕 (按下跳轉 Google Maps) -->
-                                    <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="前往 Google Maps 查看地點">
-                                        <i class="fa-solid fa-location-dot text-xmas-red"></i> ${item.location || item.title}
-                                    </a>
+                                    <!-- 📍 只有當有填寫地點時，才顯示地點 Icon 按鈕 -->
+                                    ${hasLocation ? `
+                                        <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="前往 Google Maps 查看地點">
+                                            <i class="fa-solid fa-location-dot text-xmas-red"></i> ${item.location.trim()}
+                                        </a>
+                                    ` : ''}
                                 </div>
                                 <h4 class="font-black text-sm text-gray-800 mt-1">${item.title}</h4>
                                 <p class="text-xs font-bold text-gray-600">${item.desc || ''}</p>
