@@ -263,19 +263,37 @@
 
         <!-- 5. 清單 Section -->
         <section id="section-checklist" class="hidden space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
-                    <i class="fa-solid fa-gift mr-1"></i> 待辦清單
-                </h2>
+            <!-- Sub Tabs 切換按鈕 -->
+            <div class="flex gap-2">
+                <button onclick="switchSubChecklist('todo')" id="subtab-todo" class="xmas-button px-4 py-2 font-black text-sm bg-xmas-green text-white">
+                    <i class="fa-solid fa-list-check mr-1"></i> 待辦清單
+                </button>
+                <button onclick="switchSubChecklist('luggage')" id="subtab-luggage" class="xmas-button px-4 py-2 font-black text-sm bg-white text-xmas-green">
+                    <i class="fa-solid fa-suitcase-rolling mr-1"></i> 行李清單
+                </button>
             </div>
-            
-            <div class="xmas-box p-4 space-y-3">
+
+            <!-- 待辦清單 容器 -->
+            <div id="sub-section-todo" class="xmas-box p-4 space-y-3">
                 <div id="checklist-items" class="space-y-2">
-                    <!-- 動態載入清單 -->
+                    <!-- 動態載入待辦清單 -->
                 </div>
                 <div class="flex gap-2 mt-4 pt-3 border-t-2 border-dashed border-gray-200">
                     <input type="text" id="new-item-input" placeholder="新增待辦項目..." class="flex-1 xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50">
-                    <button onclick="addChecklistItem()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">
+                    <button onclick="addChecklistItem('todo')" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-sm">
+                        <i class="fa-solid fa-plus mr-1"></i> 新增
+                    </button>
+                </div>
+            </div>
+
+            <!-- 行李清單 容器 -->
+            <div id="sub-section-luggage" class="xmas-box p-4 space-y-3 hidden">
+                <div id="luggage-items" class="space-y-2">
+                    <!-- 動態載入行李清單 -->
+                </div>
+                <div class="flex gap-2 mt-4 pt-3 border-t-2 border-dashed border-gray-200">
+                    <input type="text" id="new-luggage-input" placeholder="新增行李項目..." class="flex-1 xmas-box-sm px-3 py-2 text-sm font-bold outline-none bg-gray-50">
+                    <button onclick="addChecklistItem('luggage')" class="xmas-button bg-emerald-700 text-white px-4 py-2 font-black text-sm">
                         <i class="fa-solid fa-plus mr-1"></i> 新增
                     </button>
                 </div>
@@ -334,7 +352,7 @@
         </div>
     </div>
 
-    <!-- 刪除行李確認 Modal -->
+    <!-- 刪除確認 Modal -->
     <div id="checklist-delete-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="xmas-box bg-white p-5 max-w-xs w-full space-y-4 shadow-2xl">
             <h3 class="font-black text-lg text-xmas-red"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 移除確認</h3>
@@ -405,6 +423,14 @@
                 { id: 4, text: "日元現金 / 信用卡" },
                 { id: 5, text: "防寒保暖衣物與發熱衣" },
                 { id: 6, text: "SIM 卡 / Roaming 漫遊設定" }
+            ],
+            luggageItems: [
+                { id: 101, text: "衫褲 / 保暖衣物" },
+                { id: 102, text: "睡衣 / 換洗衣物" },
+                { id: 103, text: "充電器 / 流動電源 (Power Bank)" },
+                { id: 104, text: "英/日規轉換插頭" },
+                { id: 105, text: "個人藥品 / 常備藥" },
+                { id: 106, text: "護膚品 / 牙膏牙刷" }
             ]
         };
 
@@ -412,6 +438,8 @@
         let activeDay = 1;
         let editingScheduleIndex = null;
         let pendingDeleteId = null;
+        let pendingDeleteType = 'todo'; // 'todo' 或 'luggage'
+        let activeSubChecklist = 'todo'; // 當前 sub tab
 
         // 即時監聽 Firestore 資料變更
         const syncStatus = document.getElementById('sync-status');
@@ -423,6 +451,7 @@
                 const data = docSnap.data();
                 if (data.schedule) appData.schedule = data.schedule;
                 if (data.checklistItems) appData.checklistItems = data.checklistItems;
+                if (data.luggageItems) appData.luggageItems = data.luggageItems;
                 syncStatus.innerHTML = `<i class="fa-solid fa-cloud mr-1 text-emerald-600"></i> 已雲端同步`;
                 syncStatus.className = "text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 xmas-box-sm flex items-center";
             } else {
@@ -430,7 +459,7 @@
             }
             renderScheduleTabs();
             renderScheduleContent();
-            renderChecklist();
+            renderChecklists();
         }, (error) => {
             console.error("Sync error:", error);
             syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 離線模式`;
@@ -455,16 +484,34 @@
         }
 
         // --- 本地 Check & Remove 狀態管理 (localStorage) ---
-        function getLocalChecklistState() {
-            const checked = JSON.parse(localStorage.getItem('my_checklist_checked') || '{}');
-            const hidden = JSON.parse(localStorage.getItem('my_checklist_hidden') || '[]');
-            return { checked, hidden };
+        function getLocalState(key) {
+            return JSON.parse(localStorage.getItem(key) || '{}');
         }
 
-        function saveLocalChecklistState(checked, hidden) {
-            localStorage.setItem('my_checklist_checked', JSON.stringify(checked));
-            localStorage.setItem('my_checklist_hidden', JSON.stringify(hidden));
-            renderChecklist();
+        function saveLocalState(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        // Sub Tab 切換邏輯
+        window.switchSubChecklist = function(type) {
+            activeSubChecklist = type;
+            const btnTodo = document.getElementById('subtab-todo');
+            const btnLuggage = document.getElementById('subtab-luggage');
+            const secTodo = document.getElementById('sub-section-todo');
+            const secLuggage = document.getElementById('sub-section-luggage');
+
+            if (type === 'todo') {
+                btnTodo.className = "xmas-button px-4 py-2 font-black text-sm bg-xmas-green text-white";
+                btnLuggage.className = "xmas-button px-4 py-2 font-black text-sm bg-white text-xmas-green";
+                secTodo.classList.remove('hidden');
+                secLuggage.classList.add('hidden');
+            } else {
+                btnTodo.className = "xmas-button px-4 py-2 font-black text-sm bg-white text-xmas-green";
+                btnLuggage.className = "xmas-button px-4 py-2 font-black text-sm bg-xmas-green text-white";
+                secTodo.classList.add('hidden');
+                secLuggage.classList.remove('hidden');
+            }
+            renderChecklists();
         }
 
         // Tab 切換邏輯
@@ -475,7 +522,7 @@
             });
             document.getElementById(`section-${tabName}`).classList.remove('hidden');
             document.getElementById(`tab-${tabName}`).className = "xmas-button px-3.5 py-1.5 font-bold bg-xmas-green text-white whitespace-nowrap";
-            if (tabName === 'checklist') renderChecklist();
+            if (tabName === 'checklist') renderChecklists();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -528,7 +575,6 @@
             const container = document.getElementById('day-content');
             let items = appData.schedule[activeDay] || [];
             
-            // 自動按時間排序
             items.sort((a, b) => {
                 const timeA = a.time || '23:59';
                 const timeB = b.time || '23:59';
@@ -556,11 +602,8 @@
                     const rawLocation = item.location ? item.location.trim() : '';
                     const hasLocation = rawLocation !== '';
                     const isUrl = isValidUrl(rawLocation);
-
-                    // 決定超連結 URL
                     const mapUrl = isUrl ? rawLocation : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawLocation)}`;
                     
-                    // 決定按鈕顯示文字（網址顯為 📍 網址連結，地名限制 10 字）
                     let displayLocation = '';
                     if (hasLocation) {
                         if (isUrl) {
@@ -575,8 +618,6 @@
                             <div class="space-y-1 pr-2 flex-1">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
-                                    
-                                    <!-- 📍 地點 Icon 按鈕（支援純文字或 URL 點擊跳轉） -->
                                     ${hasLocation ? `
                                         <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition" title="${rawLocation.replace(/"/g, '&quot;')}">
                                             <i class="fa-solid fa-location-dot text-xmas-red"></i> ${displayLocation}
@@ -599,7 +640,7 @@
             container.innerHTML = html;
         }
 
-        // 動態更新 Modal 入面的 Google Maps 內嵌預覽
+        // 動態更新 Modal 地圖預覽
         window.updateMapPreview = function() {
             const locInput = document.getElementById('input-location').value.trim();
             const titleInput = document.getElementById('input-title').value.trim();
@@ -609,7 +650,6 @@
             const extLink = document.getElementById('modal-external-map-link');
 
             if (isValidUrl(locInput)) {
-                // 如果輸入的是 URL，外部連結直接帶入該 URL，內嵌顯示提示
                 extLink.href = locInput;
                 iframe.src = locInput.includes('embed') ? locInput : `https://maps.google.com/maps?q=${encodeURIComponent(titleInput || '東京')}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
             } else {
@@ -618,7 +658,6 @@
             }
         }
 
-        // 開啟 新增 / 編輯行程 Modal
         window.openAddModal = function(index = null) {
             editingScheduleIndex = index;
             const modalTitle = document.getElementById('modal-title');
@@ -638,7 +677,7 @@
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-location').value = '';
                 document.getElementById('input-desc').value = '';
-                deleteBtn.add('hidden');
+                deleteBtn.classList.add('hidden');
             }
             
             updateMapPreview();
@@ -673,7 +712,6 @@
                 appData.schedule[activeDay].push({ time, title, location, desc });
             }
 
-            // 儲存後自動按時間排序
             appData.schedule[activeDay].sort((a, b) => {
                 const timeA = a.time || '23:59';
                 const timeB = b.time || '23:59';
@@ -686,7 +724,6 @@
             closeAddModal();
         }
 
-        // 編輯彈窗內的刪除行程
         window.deleteCurrentEditingItem = function() {
             if (editingScheduleIndex === null) return;
             if (confirm('確定要刪除這個行程嗎？')) {
@@ -696,57 +733,89 @@
             }
         }
 
-        // 渲染 CheckList
-        function renderChecklist() {
-            const container = document.getElementById('checklist-items');
-            container.innerHTML = '';
-            
-            const { checked, hidden } = getLocalChecklistState();
-            const pool = appData.checklistItems || [];
-            const visibleItems = pool.filter(item => !hidden.includes(item.id));
+        // 渲染 Checklists（待辦 + 行李）
+        function renderChecklists() {
+            // 1. 待辦清單
+            const todoContainer = document.getElementById('checklist-items');
+            todoContainer.innerHTML = '';
+            const checkedTodo = getLocalState('my_checklist_checked');
+            const hiddenTodo = getLocalState('my_checklist_hidden');
+            const todoPool = appData.checklistItems || [];
+            const visibleTodo = todoPool.filter(item => !hiddenTodo[item.id]);
 
-            if (visibleItems.length === 0) {
-                container.innerHTML = `<p class="text-xs font-bold text-gray-400 text-center py-4">清單暫時係空嘅，在下方新增啦！</p>`;
-                return;
+            if (visibleTodo.length === 0) {
+                todoContainer.innerHTML = `<p class="text-xs font-bold text-gray-400 text-center py-4">待辦清單暫時係空嘅！</p>`;
+            } else {
+                visibleTodo.forEach(item => {
+                    const isChecked = !!checkedTodo[item.id];
+                    const div = document.createElement('div');
+                    div.className = `xmas-box-sm p-3.5 flex items-center justify-between cursor-pointer transition ${isChecked ? 'bg-emerald-50/50 line-through text-gray-400' : 'bg-white'}`;
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-xmas-green cursor-pointer" onchange="toggleCheckItem('todo', ${item.id})">
+                            <span class="font-bold text-sm">${item.text}</span>
+                        </div>
+                        <button onclick="openChecklistDeleteModal(${item.id}, '${item.text.replace(/'/g, "\\'")}', 'todo'); event.stopPropagation();" class="text-xs text-gray-400 hover:text-xmas-red font-bold px-2 py-1">移除</button>
+                    `;
+                    todoContainer.appendChild(div);
+                });
             }
 
-            visibleItems.forEach(item => {
-                const isChecked = !!checked[item.id];
-                const div = document.createElement('div');
-                div.className = `xmas-box-sm p-3.5 flex items-center justify-between cursor-pointer transition ${isChecked ? 'bg-emerald-50/50 line-through text-gray-400' : 'bg-white'}`;
-                div.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-xmas-green cursor-pointer" onchange="toggleLocalCheck(${item.id})">
-                        <span class="font-bold text-sm">${item.text}</span>
-                    </div>
-                    <button onclick="openChecklistDeleteModal(${item.id}, '${item.text.replace(/'/g, "\\'")}'); event.stopPropagation();" class="text-xs text-gray-400 hover:text-xmas-red font-bold px-2 py-1">移除</button>
-                `;
-                container.appendChild(div);
-            });
+            // 2. 行李清單
+            const luggageContainer = document.getElementById('luggage-items');
+            luggageContainer.innerHTML = '';
+            const checkedLuggage = getLocalState('my_luggage_checked');
+            const hiddenLuggage = getLocalState('my_luggage_hidden');
+            const luggagePool = appData.luggageItems || [];
+            const visibleLuggage = luggagePool.filter(item => !hiddenLuggage[item.id]);
+
+            if (visibleLuggage.length === 0) {
+                luggageContainer.innerHTML = `<p class="text-xs font-bold text-gray-400 text-center py-4">行李清單暫時係空嘅！</p>`;
+            } else {
+                visibleLuggage.forEach(item => {
+                    const isChecked = !!checkedLuggage[item.id];
+                    const div = document.createElement('div');
+                    div.className = `xmas-box-sm p-3.5 flex items-center justify-between cursor-pointer transition ${isChecked ? 'bg-emerald-50/50 line-through text-gray-400' : 'bg-white'}`;
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-emerald-700 cursor-pointer" onchange="toggleCheckItem('luggage', ${item.id})">
+                            <span class="font-bold text-sm">${item.text}</span>
+                        </div>
+                        <button onclick="openChecklistDeleteModal(${item.id}, '${item.text.replace(/'/g, "\\'")}', 'luggage'); event.stopPropagation();" class="text-xs text-gray-400 hover:text-xmas-red font-bold px-2 py-1">移除</button>
+                    `;
+                    luggageContainer.appendChild(div);
+                });
+            }
         }
 
-        window.toggleLocalCheck = function(id) {
-            const { checked, hidden } = getLocalChecklistState();
+        window.toggleCheckItem = function(type, id) {
+            const stateKey = type === 'todo' ? 'my_checklist_checked' : 'my_luggage_checked';
+            const checked = getLocalState(stateKey);
             checked[id] = !checked[id];
-            saveLocalChecklistState(checked, hidden);
+            saveLocalState(stateKey, checked);
+            renderChecklists();
         }
 
-        window.addChecklistItem = function() {
-            const input = document.getElementById('new-item-input');
+        window.addChecklistItem = function(type) {
+            const inputId = type === 'todo' ? 'new-item-input' : 'new-luggage-input';
+            const input = document.getElementById(inputId);
             const text = input.value.trim();
             if (!text) return;
             
-            if (!appData.checklistItems) {
-                appData.checklistItems = [];
+            const listKey = type === 'todo' ? 'checklistItems' : 'luggageItems';
+            if (!appData[listKey]) {
+                appData[listKey] = [];
             }
-            const newId = appData.checklistItems.length > 0 ? Math.max(...appData.checklistItems.map(i => i.id)) + 1 : 1;
-            appData.checklistItems.push({ id: newId, text });
+            const newId = appData[listKey].length > 0 ? Math.max(...appData[listKey].map(i => i.id)) + 1 : (type === 'todo' ? 1 : 101);
+            appData[listKey].push({ id: newId, text });
             input.value = '';
             saveData();
         }
 
-        window.openChecklistDeleteModal = function(id, text) {
+        window.openChecklistDeleteModal = function(id, text, type) {
             pendingDeleteId = id;
+            pendingDeleteType = type;
+            const typeName = type === 'todo' ? '待辦項目' : '行李項目';
             document.getElementById('delete-modal-text').innerText = `確定要移除「${text}」嗎？`;
             document.getElementById('delete-cloud-checkbox').checked = false;
             document.getElementById('checklist-delete-modal').classList.remove('hidden');
@@ -760,16 +829,17 @@
         window.confirmChecklistDelete = function() {
             if (pendingDeleteId === null) return;
             const deleteCloud = document.getElementById('delete-cloud-checkbox').checked;
+            const listKey = pendingDeleteType === 'todo' ? 'checklistItems' : 'luggageItems';
+            const hiddenKey = pendingDeleteType === 'todo' ? 'my_checklist_hidden' : 'my_luggage_hidden';
 
             if (deleteCloud) {
-                appData.checklistItems = appData.checklistItems.filter(i => i.id !== pendingDeleteId);
+                appData[listKey] = appData[listKey].filter(i => i.id !== pendingDeleteId);
                 saveData();
             } else {
-                const { checked, hidden } = getLocalChecklistState();
-                if (!hidden.includes(pendingDeleteId)) {
-                    hidden.push(pendingDeleteId);
-                }
-                saveLocalChecklistState(checked, hidden);
+                const hidden = getLocalState(hiddenKey);
+                hidden[pendingDeleteId] = true;
+                saveLocalState(hiddenKey, hidden);
+                renderChecklists();
             }
             closeChecklistDeleteModal();
         }
