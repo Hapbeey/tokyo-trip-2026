@@ -107,9 +107,19 @@
                 <h2 class="text-2xl font-black mb-2 text-xmas-green flex items-center">
                     <i class="fa-solid fa-tree text-xmas-red mr-2"></i> 8日7夜 聖誕燈飾與靜岡之旅
                 </h2>
-                <p class="text-sm font-bold text-gray-700 leading-relaxed">
+                <p class="text-sm font-bold text-gray-700 leading-relaxed mb-4">
                     12月15日出發直飛成田，中間 16 - 18 號前往靜岡欣賞富士山冬景與紅葉，最後回到東京感受濃厚聖誕氣氛與市集！❄️✨
                 </p>
+
+                <!-- 出發倒數計時器 (純天數) -->
+                <div class="bg-xmas-green text-white p-3 xmas-box-sm text-center">
+                    <div class="text-xs font-bold tracking-wider text-emerald-200 mb-0.5">
+                        <i class="fa-solid fa-hourglass-start mr-1"></i> 距離 12月15日 出發仲有
+                    </div>
+                    <div id="countdown-timer" class="text-xl font-black tracking-wide text-amber-300">
+                        計算中...
+                    </div>
+                </div>
             </div>
             
             <div class="grid grid-cols-2 gap-3">
@@ -440,6 +450,34 @@
         let pendingDeleteId = null;
         let pendingDeleteType = 'todo'; // 'todo' 或 'luggage'
         let activeSubChecklist = 'todo'; // 當前 sub tab
+
+        // 啟動純天數倒數計時器
+        function startCountdown() {
+            const targetDate = new Date('2026-12-15T00:00:00'); // 出發當日凌晨
+            const timerEl = document.getElementById('countdown-timer');
+            if (!timerEl) return;
+
+            function update() {
+                const now = new Date();
+                // 計算當前時間至出發日期的天數差
+                const diffMs = targetDate - now;
+
+                if (diffMs <= 0) {
+                    timerEl.innerText = "🎉 已經出發啦！祝旅途愉快！";
+                    return;
+                }
+
+                const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                timerEl.innerText = `${days} 天`;
+            }
+
+            update();
+        }
+
+        // 頁面載入後執行倒數
+        window.addEventListener('DOMContentLoaded', () => {
+            startCountdown();
+        });
 
         // 即時監聽 Firestore 資料變更
         const syncStatus = document.getElementById('sync-status');
