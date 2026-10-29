@@ -52,6 +52,11 @@
             border-radius: 0.75rem;
             background-color: #FFFFFF;
         }
+        .pink-box-sm {
+            border: 2px solid #D946EF;
+            border-radius: 0.75rem;
+            background-color: #FDF4FF;
+        }
         .xmas-button {
             border: 2px solid #234E42;
             box-shadow: 3px 3px 0px #234E42;
@@ -111,12 +116,12 @@
                     12月15日出發直飛成田，中間 16 - 18 號前往靜岡欣賞富士山冬景與紅葉，最後回到東京感受濃厚聖誕氣氛與市集！❄️✨
                 </p>
 
-                <!-- 出發倒數計時器 (純天數) -->
-                <div class="bg-xmas-green text-white p-3 xmas-box-sm text-center">
-                    <div class="text-xs font-bold tracking-wider text-emerald-200 mb-0.5">
-                        <i class="fa-solid fa-hourglass-start mr-1"></i> 距離 12月15日 出發仲有
+                <!-- 出發倒數計時器 (粉紅主題 + 心形驚嘆號) -->
+                <div class="bg-gradient-to-r from-pink-400 to-rose-400 text-white p-3.5 pink-box-sm text-center shadow-sm">
+                    <div class="text-xs font-bold tracking-wider text-pink-100 mb-0.5">
+                        <i class="fa-solid fa-heart mr-1 text-pink-200"></i> 距離 12月15日 出發仲有
                     </div>
-                    <div id="countdown-timer" class="text-xl font-black tracking-wide text-amber-300">
+                    <div id="countdown-timer" class="text-2xl font-black tracking-wide text-white drop-shadow-sm">
                         計算中...
                     </div>
                 </div>
@@ -451,7 +456,7 @@
         let pendingDeleteType = 'todo'; // 'todo' 或 'luggage'
         let activeSubChecklist = 'todo'; // 當前 sub tab
 
-        // 啟動純天數倒數計時器
+        // 啟動純天數倒數計時器 (帶心形驚嘆號 ❣)
         function startCountdown() {
             const targetDate = new Date('2026-12-15T00:00:00'); // 出發當日凌晨
             const timerEl = document.getElementById('countdown-timer');
@@ -459,16 +464,15 @@
 
             function update() {
                 const now = new Date();
-                // 計算當前時間至出發日期的天數差
                 const diffMs = targetDate - now;
 
                 if (diffMs <= 0) {
-                    timerEl.innerText = "🎉 已經出發啦！祝旅途愉快！";
+                    timerEl.innerText = "🎉 已經出發啦❣ 祝旅途愉快！";
                     return;
                 }
 
                 const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                timerEl.innerText = `${days} 天`;
+                timerEl.innerText = `${days} 天❣`;
             }
 
             update();
