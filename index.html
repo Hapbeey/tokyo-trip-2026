@@ -52,11 +52,6 @@
             border-radius: 0.75rem;
             background-color: #FFFFFF;
         }
-        .pink-box-sm {
-            border: 2px solid #D946EF;
-            border-radius: 0.75rem;
-            background-color: #FDF4FF;
-        }
         .xmas-button {
             border: 2px solid #234E42;
             box-shadow: 3px 3px 0px #234E42;
@@ -70,6 +65,14 @@
         .xmas-button:active {
             transform: translate(2px, 2px);
             box-shadow: 1px 1px 0px #1e1e1e;
+        }
+        /* 隱藏捲軸但保持橫向滾動順暢 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 </head>
@@ -94,6 +97,9 @@
             </button>
             <button onclick="switchTab('schedule')" id="tab-schedule" class="xmas-button px-3.5 py-1.5 font-bold bg-white text-xmas-green whitespace-nowrap">
                 <i class="fa-solid fa-calendar-days mr-1"></i> 行程
+            </button>
+            <button onclick="switchTab('weather')" id="tab-weather" class="xmas-button px-3.5 py-1.5 font-bold bg-white text-xmas-green whitespace-nowrap">
+                <i class="fa-solid fa-cloud-sun mr-1"></i> 天氣
             </button>
             <button onclick="switchTab('hotel')" id="tab-hotel" class="xmas-button px-3.5 py-1.5 font-bold bg-white text-xmas-green whitespace-nowrap">
                 <i class="fa-solid fa-bed mr-1"></i> 住宿
@@ -138,10 +144,10 @@
                     <div class="font-black">每日行程</div>
                     <div class="text-xs text-gray-500 font-bold mt-1">DAY 1 - DAY 8</div>
                 </div>
-                <div onclick="switchTab('hotel')" class="xmas-box p-4 cursor-pointer hover:bg-purple-50 transition">
-                    <div class="text-2xl mb-1 text-purple-700"><i class="fa-solid fa-hotel"></i></div>
-                    <div class="font-black">住宿安排</div>
-                    <div class="text-xs text-gray-500 font-bold mt-1">東京 / 靜岡溫泉</div>
+                <div onclick="switchTab('weather')" class="xmas-box p-4 cursor-pointer hover:bg-sky-50 transition">
+                    <div class="text-2xl mb-1 text-sky-600"><i class="fa-solid fa-cloud-sun-rain"></i></div>
+                    <div class="font-black">天氣預報</div>
+                    <div class="text-xs text-gray-500 font-bold mt-1">12/15 - 12/22 專屬預測</div>
                 </div>
                 <div onclick="switchTab('checklist')" class="xmas-box p-4 cursor-pointer hover:bg-amber-50 transition">
                     <div class="text-2xl mb-1 text-amber-600"><i class="fa-solid fa-gift"></i></div>
@@ -255,7 +261,63 @@
             </div>
         </section>
 
-        <!-- 4. 住宿 Section -->
+        <!-- 4. 天氣預報 Section -->
+        <section id="section-weather" class="hidden space-y-4">
+            <div class="flex justify-between items-center mb-1">
+                <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
+                    <i class="fa-solid fa-cloud-sun mr-1"></i> 天氣預報
+                </h2>
+            </div>
+
+            <!-- 仿照圖 1 的 Toggle Button (東京 / 靜岡) -->
+            <div class="flex justify-center my-3">
+                <div class="relative flex w-64 bg-[#2C3E35] p-1 rounded-full border-2 border-[#234E42] shadow-sm cursor-pointer select-none">
+                    <!-- 滑動背景圓餅 -->
+                    <div id="toggle-bg" class="absolute top-1 bottom-1 w-1/2 bg-white rounded-full transition-all duration-300 ease-in-out shadow-sm"></div>
+                    
+                    <!-- 東京按鈕 -->
+                    <div onclick="loadWeather('tokyo')" class="relative z-10 flex-1 text-center py-2 text-xs font-black transition-colors duration-200" id="toggle-tokyo-text">
+                        🗼 東京
+                    </div>
+                    <!-- 靜岡按鈕 -->
+                    <div onclick="loadWeather('shizuoka')" class="relative z-10 flex-1 text-center py-2 text-xs font-black transition-colors duration-200" id="toggle-shizuoka-text">
+                        🗻 靜岡
+                    </div>
+                </div>
+            </div>
+
+            <!-- 穿搭提示 Card -->
+            <div class="xmas-box p-4 bg-gradient-to-r from-sky-50 to-blue-50">
+                <h4 class="font-black text-sky-900 text-sm mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-snowflake text-sky-600"></i> 12 月關東 & 靜岡穿搭提示
+                </h4>
+                <p class="text-xs font-bold text-sky-800 leading-relaxed">
+                    平均氣溫約 <span class="font-black text-xmas-red">4°C - 12°C</span>。室外冷乾，室內及車廂有暖氣。建議採用「玉米式穿法」：發熱衣 + 針織衫 + 厚防風羽絨外套/大衣！❄️🧣
+                </p>
+            </div>
+
+            <!-- 仿照圖 2 的 橫向滾動天氣卡片容器 (Remark 已經放喺最下方) -->
+            <div class="xmas-box p-4 bg-white space-y-3">
+                <div class="flex justify-between items-center text-xs font-bold text-gray-500 pb-2 border-b-2 border-dashed border-gray-100">
+                    <span>🗓️ 12/15 - 12/22 專屬行程天氣</span>
+                    <span id="weather-city-label" class="font-black text-xmas-green">東京</span>
+                </div>
+                
+                <div id="weather-scroll-container" class="flex gap-3 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
+                    <div class="text-center py-6 text-xs font-bold text-gray-500 w-full">
+                        <i class="fa-solid fa-circle-notch fa-spin text-xl text-xmas-green mb-2 block"></i>
+                        載入 12 月天氣預報中...
+                    </div>
+                </div>
+
+                <!-- 放在卡片框入面最下方的 Remark 提示 -->
+                <div id="weather-remark" class="text-[10px] text-gray-400 font-bold text-center pt-2 border-t border-gray-100 leading-normal px-1">
+                    Data provided by Open-Meteo API
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. 住宿 Section -->
         <section id="section-hotel" class="hidden space-y-4">
             <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
                 <i class="fa-solid fa-hotel mr-1"></i> 住宿安排
@@ -276,7 +338,7 @@
             </div>
         </section>
 
-        <!-- 5. 清單 Section -->
+        <!-- 6. 清單 Section -->
         <section id="section-checklist" class="hidden space-y-4">
             <!-- Sub Tabs 切換按鈕 -->
             <div class="flex gap-2">
@@ -410,11 +472,9 @@
           appId: "1:161190483036:web:7f4d9c000b678de6ec0299"
         };
 
-        // 初始化 Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 嘗試啟用離線持久化緩存
         try {
             enableIndexedDbPersistence(db).catch((err) => {
                 console.warn("Persistence error:", err);
@@ -425,7 +485,6 @@
 
         const docRef = doc(db, "trips", "tokyo_2026");
 
-        // 預設資料
         const defaultData = {
             currentDay: 1,
             schedule: {
@@ -465,8 +524,8 @@
         let pendingDeleteId = null;
         let pendingDeleteType = 'todo';
         let activeSubChecklist = 'todo';
+        let currentWeatherCity = 'tokyo';
 
-        // 啟動純天數倒數計時器
         function startCountdown() {
             const targetDate = new Date('2026-12-15T00:00:00');
             const timerEl = document.getElementById('countdown-timer');
@@ -492,7 +551,6 @@
             startCountdown();
         });
 
-        // 即時監聽 Firestore 資料變更
         const syncStatus = document.getElementById('sync-status');
         let isConnectedOnce = false;
 
@@ -563,13 +621,14 @@
         }
 
         window.switchTab = function(tabName) {
-            ['home', 'flight', 'schedule', 'hotel', 'checklist'].forEach(t => {
+            ['home', 'flight', 'schedule', 'weather', 'hotel', 'checklist'].forEach(t => {
                 document.getElementById(`section-${t}`).classList.add('hidden');
                 document.getElementById(`tab-${t}`).className = "xmas-button px-3.5 py-1.5 font-bold bg-white text-xmas-green whitespace-nowrap";
             });
             document.getElementById(`section-${tabName}`).classList.remove('hidden');
             document.getElementById(`tab-${tabName}`).className = "xmas-button px-3.5 py-1.5 font-bold bg-xmas-green text-white whitespace-nowrap";
             if (tabName === 'checklist') renderChecklists();
+            if (tabName === 'weather') loadWeather(currentWeatherCity);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -684,7 +743,157 @@
             container.innerHTML = html;
         }
 
-        // 動態更新 Modal 地圖預覽 (如果係 URL 就切換成提示 Panel)
+        // 天氣預報 Icon & 文字對應
+        function getWeatherIconAndText(code) {
+            if (code === 0) return { icon: 'fa-sun text-amber-500', text: '晴朗' };
+            if ([1, 2, 3].includes(code)) return { icon: 'fa-cloud-sun text-sky-500', text: '多雲' };
+            if ([45, 48].includes(code)) return { icon: 'fa-smog text-gray-400', text: '有霧' };
+            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return { icon: 'fa-cloud-showers-heavy text-blue-500', text: '降雨' };
+            if ([71, 73, 75, 77, 85, 86].includes(code)) return { icon: 'fa-snowflake text-indigo-400', text: '降雪' };
+            return { icon: 'fa-cloud text-gray-500', text: '陰天' };
+        }
+
+        // 12月歷史氣候 Mock Data (當 API 超出 14 天時 Fallback 使用)
+        const mockWeatherData = {
+            tokyo: [
+                { date: '12/15', label: '周二 (DAY 1)', max: 12, min: 5, prob: 10, code: 0 },
+                { date: '12/16', label: '周三 (DAY 2)', max: 11, min: 4, prob: 20, code: 1 },
+                { date: '12/17', label: '周四 (DAY 3)', max: 10, min: 3, prob: 10, code: 0 },
+                { date: '12/18', label: '周五 (DAY 4)', max: 11, min: 4, prob: 15, code: 2 },
+                { date: '12/19', label: '周六 (DAY 5)', max: 13, min: 6, prob: 30, code: 61 },
+                { date: '12/20', label: '周日 (DAY 6)', max: 12, min: 5, prob: 10, code: 0 },
+                { date: '12/21', label: '周一 (DAY 7)', max: 10, min: 4, prob: 5, code: 1 },
+                { date: '12/22', label: '周二 (DAY 8)', max: 11, min: 5, prob: 10, code: 0 }
+            ],
+            shizuoka: [
+                { date: '12/15', label: '周二 (DAY 1)', max: 14, min: 6, prob: 10, code: 0 },
+                { date: '12/16', label: '周三 (DAY 2)', max: 13, min: 5, prob: 15, code: 1 },
+                { date: '12/17', label: '周四 (DAY 3)', max: 12, min: 4, prob: 10, code: 0 },
+                { date: '12/18', label: '周五 (DAY 4)', max: 13, min: 5, prob: 20, code: 2 },
+                { date: '12/19', label: '周六 (DAY 5)', max: 14, min: 7, prob: 25, code: 1 },
+                { date: '12/20', label: '周日 (DAY 6)', max: 13, min: 6, prob: 10, code: 0 },
+                { date: '12/21', label: '周一 (DAY 7)', max: 12, min: 5, prob: 5, code: 0 },
+                { date: '12/22', label: '周二 (DAY 8)', max: 13, min: 6, prob: 10, code: 1 }
+            ]
+        };
+
+        function renderWeatherCards(list, isFallback) {
+            const container = document.getElementById('weather-scroll-container');
+            const remarkEl = document.getElementById('weather-remark');
+            let html = '';
+
+            list.forEach((item, index) => {
+                const weatherInfo = getWeatherIconAndText(item.code);
+                const isFirst = index === 0;
+
+                html += `
+                    <div class="flex-shrink-0 w-28 p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-between shadow-sm ${isFirst ? 'bg-emerald-50/40 border-xmas-green ring-2 ring-xmas-green/20' : 'bg-white border-gray-200'}">
+                        <div class="text-center">
+                            <div class="text-xs font-black text-gray-800">${item.date}</div>
+                            <div class="text-[10px] font-bold text-gray-400 mt-0.5">${item.label}</div>
+                        </div>
+                        <div class="my-3 text-center">
+                            <i class="fa-solid ${weatherInfo.icon} text-3xl mb-1"></i>
+                            <div class="text-[11px] font-black text-gray-600">${weatherInfo.text}</div>
+                        </div>
+                        <div class="w-full text-center space-y-1 pt-2 border-t border-gray-100">
+                            <div class="text-sm font-black">
+                                <span class="text-xmas-red">${item.max}°</span> <span class="text-gray-400 font-bold">/</span> <span class="text-blue-600">${item.min}°</span>
+                            </div>
+                            <div class="text-[10px] font-bold text-gray-500">
+                                <i class="fa-solid fa-umbrella text-sky-500 mr-0.5"></i> ${item.prob}%
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+
+            // 根據是否 Fallback 動態更換卡片入面最底部的灰色 Remark 字句
+            if (isFallback) {
+                remarkEl.innerText = "⚠️ 距出發日期較遠，現正顯示 12 月歷史氣候模擬預測；出發前 14 天內將自動更新為真實即時天氣預報。";
+            } else {
+                remarkEl.innerText = "Data provided by Open-Meteo API (即時氣象預報數據)";
+            }
+        }
+
+        window.loadWeather = async function(city) {
+            currentWeatherCity = city;
+            const toggleBg = document.getElementById('toggle-bg');
+            const toggleTokyoText = document.getElementById('toggle-tokyo-text');
+            const toggleShizuokaText = document.getElementById('toggle-shizuoka-text');
+            const cityLabel = document.getElementById('weather-city-label');
+            const container = document.getElementById('weather-scroll-container');
+
+            if (city === 'tokyo') {
+                toggleBg.style.transform = 'translateX(0%)';
+                toggleTokyoText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-xmas-green';
+                toggleShizuokaText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-white';
+                cityLabel.innerText = '東京';
+            } else {
+                toggleBg.style.transform = 'translateX(100%)';
+                toggleTokyoText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-white';
+                toggleShizuokaText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-xmas-green';
+                cityLabel.innerText = '靜岡';
+            }
+
+            container.innerHTML = `
+                <div class="text-center py-6 text-xs font-bold text-gray-500 w-full">
+                    <i class="fa-solid fa-circle-notch fa-spin text-xl text-xmas-green mb-2 block"></i>
+                    載入 12 月天氣預報中...
+                </div>
+            `;
+
+            const coords = city === 'tokyo' 
+                ? { lat: 35.6762, lon: 139.6503 }
+                : { lat: 34.9769, lon: 138.3831 };
+
+            try {
+                // 嘗試請求真實 API 數據
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&start_date=2026-12-15&end_date=2026-12-22`);
+                
+                if (!res.ok) {
+                    throw new Error('Date too far in future');
+                }
+
+                const data = await res.json();
+                if (!data.daily) throw new Error('Failed to load weather');
+
+                const daily = data.daily;
+                const tripDaysInfo = [
+                    { day: 1, label: '周二 (DAY 1)' },
+                    { day: 2, label: '周三 (DAY 2)' },
+                    { day: 3, label: '周四 (DAY 3)' },
+                    { day: 4, label: '周五 (DAY 4)' },
+                    { day: 5, label: '周六 (DAY 5)' },
+                    { day: 6, label: '周日 (DAY 6)' },
+                    { day: 7, label: '周一 (DAY 7)' },
+                    { day: 8, label: '周二 (DAY 8)' }
+                ];
+
+                const formattedList = [];
+                for (let i = 0; i < daily.time.length; i++) {
+                    const dateStr = daily.time[i];
+                    formattedList.push({
+                        date: dateStr.substring(5).replace('-', '/'),
+                        label: tripDaysInfo[i] ? tripDaysInfo[i].label : '',
+                        max: Math.round(daily.temperature_2m_max[i]),
+                        min: Math.round(daily.temperature_2m_min[i]),
+                        prob: daily.precipitation_probability_max[i] || 0,
+                        code: daily.weathercode[i]
+                    });
+                }
+
+                renderWeatherCards(formattedList, false);
+
+            } catch (err) {
+                // 當 API 回傳 400 (日子太遠) 時，自動 Catch 並加載 12 月歷史氣候 Fallback 數據
+                console.warn("Weather API notice: Switch to historical climate model (too far in future).", err);
+                renderWeatherCards(mockWeatherData[city], true);
+            }
+        }
+
         window.updateMapPreview = function() {
             const locInput = document.getElementById('input-location').value.trim();
             const iframeWrapper = document.getElementById('map-iframe-wrapper');
@@ -693,12 +902,10 @@
             const extLink = document.getElementById('modal-external-map-link');
 
             if (isValidUrl(locInput)) {
-                // 如果是 URL，隱藏 iframe，顯示提示 Panel
                 iframeWrapper.classList.add('hidden');
                 noticePanel.classList.remove('hidden');
                 extLink.href = locInput;
             } else {
-                // 如果是一般地名文字，顯示 iframe，隱藏提示 Panel
                 iframeWrapper.classList.remove('hidden');
                 noticePanel.classList.add('hidden');
                 const titleInput = document.getElementById('input-title').value.trim();
