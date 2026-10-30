@@ -116,12 +116,12 @@
                     12月15日出發直飛成田，中間 16 - 18 號前往靜岡欣賞富士山冬景與紅葉，最後回到東京感受濃厚聖誕氣氛與市集！❄️✨
                 </p>
 
-                <!-- 出發倒數計時器 (粉紅主題 + 心形驚嘆號) -->
-                <div class="bg-gradient-to-r from-rose-200 to-rose-200 text-white p-3.5 pink-box-sm text-center shadow-sm">
-                    <div class="text-xs font-bold tracking-wider text-pink-900 mb-0.5">
-                        <i class="fa-solid fa-heart mr-1 text-pink-700"></i> 距離 12月15日 出發仲有
+                <!-- 出發倒數計時器 -->
+                <div class="bg-white text-xmas-green p-3.5 xmas-box-sm text-center">
+                    <div class="text-xs font-bold tracking-wider text-gray-600 mb-0.5">
+                        <i class="fa-solid fa-heart mr-1 text-xmas-red"></i> 距離 12月15日 出發仲有
                     </div>
-                    <div id="countdown-timer" class="text-2xl font-black tracking-wide text-pink-700 drop-shadow-sm">
+                    <div id="countdown-timer" class="text-2xl font-black tracking-wide text-xmas-green">
                         計算中...
                     </div>
                 </div>
@@ -161,7 +161,7 @@
             <div class="xmas-box p-4 bg-white">
                 <div class="flex justify-between items-center mb-3">
                     <span class="bg-xmas-red text-white text-xs font-black px-2.5 py-1 xmas-box-sm rounded-lg">
-                        <i class="fa-solid fa-plane-departure mr-1"></i> 去程 · 隨心飛
+                        <i class="fa-solid fa-plane-departure mr-1"></i> 去程
                     </span>
                     <span class="font-black text-sm text-xmas-green">UO870</span>
                 </div>
@@ -190,7 +190,7 @@
             <div class="xmas-box p-4 bg-white">
                 <div class="flex justify-between items-center mb-3">
                     <span class="bg-xmas-green text-white text-xs font-black px-2.5 py-1 xmas-box-sm rounded-lg">
-                        <i class="fa-solid fa-plane-arrival mr-1"></i> 回程 · 隨心飛
+                        <i class="fa-solid fa-plane-arrival mr-1"></i> 回程
                     </span>
                     <span class="font-black text-sm text-xmas-green">UO647</span>
                 </div>
@@ -467,12 +467,12 @@
                 const diffMs = targetDate - now;
 
                 if (diffMs <= 0) {
-                    timerEl.innerText = "🎉 已經出發啦❣ 祝旅途愉快！";
+                    timerEl.innerText = "🎉 出發啦！";
                     return;
                 }
 
                 const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                timerEl.innerText = `${days} 天❣`;
+                timerEl.innerText = `${days} 天！`;
             }
 
             update();
