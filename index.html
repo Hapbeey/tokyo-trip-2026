@@ -345,8 +345,18 @@
                     <label class="text-xs font-bold block text-gray-700"><i class="fa-solid fa-map-location-dot text-xmas-red mr-1"></i> 地圖即時預覽</label>
                     <a id="modal-external-map-link" href="#" target="_blank" class="text-[10px] font-bold text-blue-600 hover:underline">在 Google Maps 開啟 ↗</a>
                 </div>
-                <div class="xmas-box-sm overflow-hidden h-40 bg-gray-100 relative">
+                
+                <!-- 地圖 iframe (文字地名時顯示) -->
+                <div id="map-iframe-wrapper" class="xmas-box-sm overflow-hidden h-40 bg-gray-100 relative">
                     <iframe id="map-preview-iframe" class="w-full h-full border-0" loading="lazy" allowfullscreen src="about:blank"></iframe>
+                </div>
+
+                <!-- URL 提示 Panel (貼網址時顯示) -->
+                <div id="map-url-notice" class="xmas-box-sm p-4 bg-amber-50/80 border-amber-300 text-center space-y-2 hidden">
+                    <div class="text-amber-700 text-xl"><i class="fa-solid fa-circle-info"></i></div>
+                    <p class="text-xs font-bold text-amber-900 leading-relaxed">
+                        地圖網址暫不支援即時預覽，但儲存後可於行程列表點擊按鈕直接開啟。
+                    </p>
                 </div>
             </div>
 
@@ -453,12 +463,12 @@
         let activeDay = 1;
         let editingScheduleIndex = null;
         let pendingDeleteId = null;
-        let pendingDeleteType = 'todo'; // 'todo' 或 'luggage'
-        let activeSubChecklist = 'todo'; // 當前 sub tab
+        let pendingDeleteType = 'todo';
+        let activeSubChecklist = 'todo';
 
-        // 啟動純天數倒數計時器 (帶心形驚嘆號 ❣)
+        // 啟動純天數倒數計時器
         function startCountdown() {
-            const targetDate = new Date('2026-12-15T00:00:00'); // 出發當日凌晨
+            const targetDate = new Date('2026-12-15T00:00:00');
             const timerEl = document.getElementById('countdown-timer');
             if (!timerEl) return;
 
@@ -478,7 +488,6 @@
             update();
         }
 
-        // 頁面載入後執行倒數
         window.addEventListener('DOMContentLoaded', () => {
             startCountdown();
         });
@@ -515,7 +524,6 @@
             }
         }, 5000);
 
-        // 儲存資料到 Firestore
         async function saveData() {
             try {
                 await setDoc(docRef, appData);
@@ -525,7 +533,6 @@
             }
         }
 
-        // --- 本地 Check & Remove 狀態管理 (localStorage) ---
         function getLocalState(key) {
             return JSON.parse(localStorage.getItem(key) || '{}');
         }
@@ -534,7 +541,6 @@
             localStorage.setItem(key, JSON.stringify(data));
         }
 
-        // Sub Tab 切換邏輯
         window.switchSubChecklist = function(type) {
             activeSubChecklist = type;
             const btnTodo = document.getElementById('subtab-todo');
@@ -556,7 +562,6 @@
             renderChecklists();
         }
 
-        // Tab 切換邏輯
         window.switchTab = function(tabName) {
             ['home', 'flight', 'schedule', 'hotel', 'checklist'].forEach(t => {
                 document.getElementById(`section-${t}`).classList.add('hidden');
@@ -568,7 +573,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // 判斷字串是否為 URL
         function isValidUrl(str) {
             try {
                 return str.startsWith('http://') || str.startsWith('https://');
@@ -577,7 +581,6 @@
             }
         }
 
-        // 渲染每日行程日期按鈕 (DAY 1 - 8)
         function renderScheduleTabs() {
             const container = document.getElementById('day-tabs');
             container.innerHTML = '';
@@ -612,7 +615,6 @@
             });
         }
 
-        // 渲染當日行程內容（自動按時間排序）
         function renderScheduleContent() {
             const container = document.getElementById('day-content');
             let items = appData.schedule[activeDay] || [];
@@ -682,19 +684,25 @@
             container.innerHTML = html;
         }
 
-        // 動態更新 Modal 地圖預覽
+        // 動態更新 Modal 地圖預覽 (如果係 URL 就切換成提示 Panel)
         window.updateMapPreview = function() {
             const locInput = document.getElementById('input-location').value.trim();
-            const titleInput = document.getElementById('input-title').value.trim();
-            const query = locInput || titleInput || '東京';
-
+            const iframeWrapper = document.getElementById('map-iframe-wrapper');
+            const noticePanel = document.getElementById('map-url-notice');
             const iframe = document.getElementById('map-preview-iframe');
             const extLink = document.getElementById('modal-external-map-link');
 
             if (isValidUrl(locInput)) {
+                // 如果是 URL，隱藏 iframe，顯示提示 Panel
+                iframeWrapper.classList.add('hidden');
+                noticePanel.classList.remove('hidden');
                 extLink.href = locInput;
-                iframe.src = locInput.includes('embed') ? locInput : `https://maps.google.com/maps?q=${encodeURIComponent(titleInput || '東京')}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
             } else {
+                // 如果是一般地名文字，顯示 iframe，隱藏提示 Panel
+                iframeWrapper.classList.remove('hidden');
+                noticePanel.classList.add('hidden');
+                const titleInput = document.getElementById('input-title').value.trim();
+                const query = locInput || titleInput || '東京';
                 iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
                 extLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
             }
@@ -775,9 +783,7 @@
             }
         }
 
-        // 渲染 Checklists（待辦 + 行李）
         function renderChecklists() {
-            // 1. 待辦清單
             const todoContainer = document.getElementById('checklist-items');
             todoContainer.innerHTML = '';
             const checkedTodo = getLocalState('my_checklist_checked');
@@ -803,7 +809,6 @@
                 });
             }
 
-            // 2. 行李清單
             const luggageContainer = document.getElementById('luggage-items');
             luggageContainer.innerHTML = '';
             const checkedLuggage = getLocalState('my_luggage_checked');
@@ -857,7 +862,6 @@
         window.openChecklistDeleteModal = function(id, text, type) {
             pendingDeleteId = id;
             pendingDeleteType = type;
-            const typeName = type === 'todo' ? '待辦項目' : '行李項目';
             document.getElementById('delete-modal-text').innerText = `確定要移除「${text}」嗎？`;
             document.getElementById('delete-cloud-checkbox').checked = false;
             document.getElementById('checklist-delete-modal').classList.remove('hidden');
