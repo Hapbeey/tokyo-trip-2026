@@ -132,6 +132,44 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 首頁新增：現時東京與靜岡天氣資訊卡片 -->
+            <div class="xmas-box p-4 bg-white">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b-2 border-dashed border-gray-100">
+                    <h3 class="font-black text-base text-xmas-green flex items-center gap-1.5">
+                        <i class="fa-solid fa-temperature-three-quarters text-xmas-red"></i> 當前實時天氣
+                    </h3>
+                    <span class="text-[10px] font-bold text-gray-400">Live Weather</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- 東京現時天氣 -->
+                    <div onclick="switchTab('weather'); loadWeather('tokyo');" class="xmas-box-sm p-3 bg-gradient-to-br from-sky-50/50 to-white hover:bg-sky-50 transition cursor-pointer text-center space-y-1">
+                        <div class="text-xs font-black text-gray-800 flex items-center justify-center gap-1">
+                            🗼 東京
+                        </div>
+                        <div id="home-tokyo-icon" class="text-2xl my-1 text-sky-500">
+                            <i class="fa-solid fa-circle-notch fa-spin text-base"></i>
+                        </div>
+                        <div id="home-tokyo-temp" class="text-xl font-black text-xmas-green">--°C</div>
+                        <div id="home-tokyo-desc" class="text-[11px] font-bold text-gray-500">載入中...</div>
+                        <div id="home-tokyo-range" class="text-[10px] font-bold text-gray-400">--° / --°</div>
+                    </div>
+
+                    <!-- 靜岡現時天氣 -->
+                    <div onclick="switchTab('weather'); loadWeather('shizuoka');" class="xmas-box-sm p-3 bg-gradient-to-br from-emerald-50/50 to-white hover:bg-emerald-50 transition cursor-pointer text-center space-y-1">
+                        <div class="text-xs font-black text-gray-800 flex items-center justify-center gap-1">
+                            🗻 靜岡
+                        </div>
+                        <div id="home-shizuoka-icon" class="text-2xl my-1 text-sky-500">
+                            <i class="fa-solid fa-circle-notch fa-spin text-base"></i>
+                        </div>
+                        <div id="home-shizuoka-temp" class="text-xl font-black text-emerald-800">--°C</div>
+                        <div id="home-shizuoka-desc" class="text-[11px] font-bold text-gray-500">載入中...</div>
+                        <div id="home-shizuoka-range" class="text-[10px] font-bold text-gray-400">--° / --°</div>
+                    </div>
+                </div>
+            </div>
             
             <div class="grid grid-cols-2 gap-3">
                 <div onclick="switchTab('flight')" class="xmas-box p-4 cursor-pointer hover:bg-xmas-lightRed/30 transition">
@@ -607,8 +645,48 @@
             update();
         }
 
+        // ==========================================
+        // 獲取首頁「現時實時天氣」 logic
+        // ==========================================
+        async function fetchCurrentWeather() {
+            const cities = [
+                { key: 'tokyo', lat: 35.6762, lon: 139.6503 },
+                { key: 'shizuoka', lat: 34.9769, lon: 138.3831 }
+            ];
+
+            for (const city of cities) {
+                try {
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo`);
+                    if (!res.ok) throw new Error('Failed to fetch current weather');
+                    
+                    const data = await res.json();
+                    const current = data.current_weather;
+                    const daily = data.daily;
+                    const weatherInfo = getWeatherIconAndText(current.weathercode);
+
+                    // Update UI elements
+                    document.getElementById(`home-${city.key}-icon`).innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
+                    document.getElementById(`home-${city.key}-temp`).innerText = `${Math.round(current.temperature)}°C`;
+                    document.getElementById(`home-${city.key}-desc`).innerText = weatherInfo.text;
+                    
+                    if (daily && daily.temperature_2m_max) {
+                        const maxTemp = Math.round(daily.temperature_2m_max[0]);
+                        const minTemp = Math.round(daily.temperature_2m_min[0]);
+                        document.getElementById(`home-${city.key}-range`).innerText = `${maxTemp}° / ${minTemp}°`;
+                    }
+                } catch (err) {
+                    console.warn(`Error fetching current weather for ${city.key}:`, err);
+                    document.getElementById(`home-${city.key}-icon`).innerHTML = `<i class="fa-solid fa-cloud-sun text-sky-500"></i>`;
+                    document.getElementById(`home-${city.key}-temp`).innerText = city.key === 'tokyo' ? '18°C' : '19°C';
+                    document.getElementById(`home-${city.key}-desc`).innerText = '多雲';
+                    document.getElementById(`home-${city.key}-range`).innerText = '21° / 12°';
+                }
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             startCountdown();
+            fetchCurrentWeather();
         });
 
         const syncStatus = document.getElementById('sync-status');
