@@ -842,12 +842,19 @@
             const remarkEl = document.getElementById('weather-remark');
             let html = '';
 
+            // 靜岡停留的日子為 DAY 2, 3, 4 (索引為 1, 2, 3)
+            const shizuokaIndexes = [1, 2, 3];
+
             list.forEach((item, index) => {
                 const weatherInfo = getWeatherIconAndText(item.code);
-                const isFirst = index === 0;
+                
+                // 根據當前選擇的城市動態判斷是否要高亮圈住該日卡片
+                const isHighlight = currentWeatherCity === 'shizuoka'
+                    ? shizuokaIndexes.includes(index)
+                    : !shizuokaIndexes.includes(index);
 
                 html += `
-                    <div class="flex-shrink-0 w-28 p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-between shadow-sm ${isFirst ? 'bg-emerald-50/40 border-xmas-green ring-2 ring-xmas-green/20' : 'bg-white border-gray-200'}">
+                    <div class="flex-shrink-0 w-28 p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-between shadow-sm ${isHighlight ? 'bg-emerald-50/40 border-xmas-green ring-2 ring-xmas-green/20' : 'bg-white border-gray-200'}">
                         <div class="text-center">
                             <div class="text-xs font-black text-gray-800">${item.date}</div>
                             <div class="text-[10px] font-bold text-gray-400 mt-0.5">${item.label}</div>
