@@ -269,18 +269,18 @@
                 </h2>
             </div>
 
-            <!-- 仿照圖 1 的 Toggle Button (東京 / 靜岡) -->
+            <!-- 修正邊界的 Toggle Button (東京 / 靜岡) -->
             <div class="flex justify-center my-3">
-                <div class="relative flex w-64 bg-[#2C3E35] p-1 rounded-full border-2 border-[#234E42] shadow-sm cursor-pointer select-none">
-                    <!-- 滑動背景圓餅 -->
-                    <div id="toggle-bg" class="absolute top-1 bottom-1 w-1/2 bg-white rounded-full transition-all duration-300 ease-in-out shadow-sm"></div>
+                <div class="relative flex w-64 bg-[#2C3E35] p-1 rounded-full border-2 border-[#234E42] shadow-sm cursor-pointer select-none overflow-hidden">
+                    <!-- 滑動背景圓餅 (寬度改為 calc 配合 padding) -->
+                    <div id="toggle-bg" class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 ease-in-out shadow-sm"></div>
                     
                     <!-- 東京按鈕 -->
-                    <div onclick="loadWeather('tokyo')" class="relative z-10 flex-1 text-center py-2 text-xs font-black transition-colors duration-200" id="toggle-tokyo-text">
+                    <div onclick="loadWeather('tokyo')" class="relative z-10 flex-1 text-center py-2 text-xs font-black transition-colors duration-200 flex items-center justify-center gap-1" id="toggle-tokyo-text">
                         🗼 東京
                     </div>
                     <!-- 靜岡按鈕 -->
-                    <div onclick="loadWeather('shizuoka')" class="relative z-10 flex-1 text-center py-2 text-xs font-black transition-colors duration-200" id="toggle-shizuoka-text">
+                    <div onclick="loadWeather('shizuoka')" class="relative z-10 flex-1 text-center py-2 text-xs font-black transition-colors duration-200 flex items-center justify-center gap-1" id="toggle-shizuoka-text">
                         🗻 靜岡
                     </div>
                 </div>
@@ -296,7 +296,7 @@
                 </p>
             </div>
 
-            <!-- 仿照圖 2 的 橫向滾動天氣卡片容器 (Remark 放在最下方) -->
+            <!-- 橫向滾動天氣卡片容器 -->
             <div class="xmas-box p-4 bg-white space-y-3">
                 <div class="flex justify-between items-center text-xs font-bold text-gray-500 pb-2 border-b-2 border-dashed border-gray-100">
                     <span>🗓️ 12/15 - 12/22 專屬行程天氣</span>
@@ -317,7 +317,7 @@
             </div>
         </section>
 
-        <!-- 5. 住宿 Section (已更新最新酒店詳情) -->
+        <!-- 5. 住宿 Section -->
         <section id="section-hotel" class="hidden space-y-4">
             <h2 class="text-xl font-black bg-xmas-green text-white px-3.5 py-1.5 xmas-box inline-block">
                 <i class="fa-solid fa-hotel mr-1"></i> 住宿安排
@@ -886,14 +886,14 @@
             const container = document.getElementById('weather-scroll-container');
 
             if (city === 'tokyo') {
-                toggleBg.style.transform = 'translateX(0%)';
-                toggleTokyoText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-xmas-green';
-                toggleShizuokaText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-white';
+                toggleBg.style.transform = 'translateX(0px)';
+                toggleTokyoText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-xmas-green flex items-center justify-center gap-1';
+                toggleShizuokaText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-white flex items-center justify-center gap-1';
                 cityLabel.innerText = '東京';
             } else {
                 toggleBg.style.transform = 'translateX(100%)';
-                toggleTokyoText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-white';
-                toggleShizuokaText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-xmas-green';
+                toggleTokyoText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-white flex items-center justify-center gap-1';
+                toggleShizuokaText.className = 'relative z-10 flex-1 text-center py-2 text-xs font-black text-xmas-green flex items-center justify-center gap-1';
                 cityLabel.innerText = '靜岡';
             }
 
