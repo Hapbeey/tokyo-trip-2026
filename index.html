@@ -623,6 +623,8 @@
         let pendingDeleteType = 'todo';
         let activeSubChecklist = 'todo';
         let currentWeatherCity = 'tokyo';
+        const weatherCache = {};
+        const weatherFetchPromises = {};
 
         function startCountdown() {
             const targetDate = new Date('2026-12-15T00:00:00');
@@ -982,6 +984,11 @@
                 cityLabel.innerText = '靜岡';
             }
 
+            if (weatherCache[city]) {
+                renderWeatherCards(weatherCache[city].list, weatherCache[city].isFallback);
+                return;
+            }
+
             container.innerHTML = `
                 <div class="text-center py-6 text-xs font-bold text-gray-500 w-full">
                     <i class="fa-solid fa-circle-notch fa-spin text-xl text-xmas-green mb-2 block"></i>
@@ -993,46 +1000,56 @@
                 ? { lat: 35.6762, lon: 139.6503 }
                 : { lat: 34.9769, lon: 138.3831 };
 
-            try {
-                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&start_date=2026-12-15&end_date=2026-12-22`);
-                
-                if (!res.ok) {
-                    throw new Error('Date too far in future');
-                }
+            if (!weatherFetchPromises[city]) {
+                weatherFetchPromises[city] = (async () => {
+                    try {
+                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&start_date=2026-12-15&end_date=2026-12-22`);
 
-                const data = await res.json();
-                if (!data.daily) throw new Error('Failed to load weather');
+                        if (!res.ok) {
+                            throw new Error('Date too far in future');
+                        }
 
-                const daily = data.daily;
-                const tripDaysInfo = [
-                    { day: 1, label: '周二 (DAY 1)' },
-                    { day: 2, label: '周三 (DAY 2)' },
-                    { day: 3, label: '周四 (DAY 3)' },
-                    { day: 4, label: '周五 (DAY 4)' },
-                    { day: 5, label: '周六 (DAY 5)' },
-                    { day: 6, label: '周日 (DAY 6)' },
-                    { day: 7, label: '周一 (DAY 7)' },
-                    { day: 8, label: '周二 (DAY 8)' }
-                ];
+                        const data = await res.json();
+                        if (!data.daily) throw new Error('Failed to load weather');
 
-                const formattedList = [];
-                for (let i = 0; i < daily.time.length; i++) {
-                    const dateStr = daily.time[i];
-                    formattedList.push({
-                        date: dateStr.substring(5).replace('-', '/'),
-                        label: tripDaysInfo[i] ? tripDaysInfo[i].label : '',
-                        max: Math.round(daily.temperature_2m_max[i]),
-                        min: Math.round(daily.temperature_2m_min[i]),
-                        prob: daily.precipitation_probability_max[i] || 0,
-                        code: daily.weathercode[i]
-                    });
-                }
+                        const daily = data.daily;
+                        const tripDaysInfo = [
+                            { day: 1, label: '周二 (DAY 1)' },
+                            { day: 2, label: '周三 (DAY 2)' },
+                            { day: 3, label: '周四 (DAY 3)' },
+                            { day: 4, label: '周五 (DAY 4)' },
+                            { day: 5, label: '周六 (DAY 5)' },
+                            { day: 6, label: '周日 (DAY 6)' },
+                            { day: 7, label: '周一 (DAY 7)' },
+                            { day: 8, label: '周二 (DAY 8)' }
+                        ];
 
-                renderWeatherCards(formattedList, false);
+                        const formattedList = [];
+                        for (let i = 0; i < daily.time.length; i++) {
+                            const dateStr = daily.time[i];
+                            formattedList.push({
+                                date: dateStr.substring(5).replace('-', '/'),
+                                label: tripDaysInfo[i] ? tripDaysInfo[i].label : '',
+                                max: Math.round(daily.temperature_2m_max[i]),
+                                min: Math.round(daily.temperature_2m_min[i]),
+                                prob: daily.precipitation_probability_max[i] || 0,
+                                code: daily.weathercode[i]
+                            });
+                        }
 
-            } catch (err) {
-                console.warn("Weather API notice: Switch to historical climate model (too far in future).", err);
-                renderWeatherCards(mockWeatherData[city], true);
+                        return { list: formattedList, isFallback: false };
+                    } catch (err) {
+                        console.warn("Weather API notice: Switch to historical climate model (too far in future).", err);
+                        return { list: mockWeatherData[city], isFallback: true };
+                    }
+                })();
+            }
+
+            const weather = await weatherFetchPromises[city];
+            weatherCache[city] = weather;
+
+            if (city === currentWeatherCity) {
+                renderWeatherCards(weather.list, weather.isFallback);
             }
         }
 
