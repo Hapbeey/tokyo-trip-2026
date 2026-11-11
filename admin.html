@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎄 東京聖誕之旅 - 行程管理後台 ✨</title>
+    <!-- Google Fonts 圓體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Zen Maru Gothic"', 'sans-serif'],
+                    },
+                    colors: {
+                        xmas: {
+                            green: '#234E42',
+                            lightGreen: '#E8F2EC',
+                            red: '#9B2226',
+                            cream: '#F9F6F0',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #F9F6F0; color: #2C3E35; }
+        .xmas-box { border: 2px solid #234E42; box-shadow: 4px 4px 0px #234E42; background-color: #FFFFFF; border-radius: 1rem; }
+        .xmas-box-sm { border: 2px solid #234E42; border-radius: 0.75rem; background-color: #FFFFFF; }
+        .xmas-button { border: 2px solid #234E42; box-shadow: 3px 3px 0px #234E42; transition: all 0.1s ease; border-radius: 0.75rem; }
+        .xmas-button:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0px #234E42; }
+        .xmas-button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #1e1e1e; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="pb-16 selection:bg-red-200">
+
+    <!-- 頂部導航 -->
+    <header class="sticky top-0 z-40 bg-[#F9F6F0]/90 backdrop-blur-md border-b-2 border-xmas-green py-3 px-4 shadow-sm">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <h1 class="font-black text-lg bg-xmas-green text-white px-3 py-1 rounded-xl shadow-sm rotate-[-1deg]">
+                ⚙️ 行程 AI 管理後台
+            </h1>
+            <div id="sync-status" class="text-xs font-bold text-gray-600 bg-white px-2.5 py-1 xmas-box-sm flex items-center">
+                <i class="fa-solid fa-cloud-arrow-up mr-1 text-xmas-green"></i> 連線中...
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-5 space-y-5">
+
+        <!-- 1. 上半部分：現有雲端行程即時檢視 (Expandable / Default Collapsed) -->
+        <section class="xmas-box bg-white overflow-hidden space-y-0">
+            
+            <!-- (A) 永遠保持顯示：日期切換選單 -->
+            <div class="p-3 bg-gradient-to-r from-xmas-lightGreen to-white border-b-2 border-xmas-green">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days text-xmas-green"></i>
+                        <span class="text-xs font-black text-xmas-green">選擇目標日期</span>
+                    </div>
+                    <button onclick="toggleScheduleAccordion()" class="flex items-center gap-1 text-xs text-[#234E42] font-black hover:underline cursor-pointer">
+                        <span id="accordion-status-text">檢視當日行程</span>
+                        <i id="accordion-arrow" class="fa-solid fa-chevron-down transition-transform duration-300"></i>
+                    </button>
+                </div>
+
+                <!-- 日期橫向切換按鈕 DAY 1 - 8 -->
+                <div id="day-tabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    <!-- 動態生成 DAY 1 - 8 -->
+                </div>
+            </div>
+
+            <!-- (B) 收合內容區域 (預設隱藏 hidden, Expand 嗰陣先顯示詳細行程列表) -->
+            <div id="schedule-accordion-content" class="hidden p-4 space-y-3 bg-white border-t border-dashed border-gray-200">
+                <!-- 當日行程卡片容器 -->
+                <div id="day-content" class="space-y-3">
+                    <!-- 動態載入當日行程 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 下半部分：單日專屬 3-Step AI Workflow -->
+        <div class="space-y-4">
+            
+            <!-- 當前選擇日期提示 -->
+            <div class="flex items-center justify-between px-1">
+                <div class="flex items-center gap-1.5 font-black text-xmas-green text-sm">
+                    <i class="fa-solid fa-pen-to-square text-xmas-red"></i>
+                    <span>當前新增行程目標日期：</span>
+                    <span id="selected-target-day-title" class="bg-xmas-red text-white text-xs px-2.5 py-0.5 rounded-full shadow-sm">DAY 1 (12/15 周二)</span>
+                </div>
+            </div>
+
+            <!-- 隱藏的舊 Step 1：保留匯出與預覽 JSON 功能 -->
+            <section class="hidden xmas-box p-4 bg-white space-y-3">
+                <div class="flex items-center justify-between border-b-2 border-dashed border-gray-100 pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-sky-600 text-white text-xs font-black px-2 py-0.5 rounded-md">Step 1</span>
+                        <h2 class="font-black text-sm text-xmas-green">
+                            <i class="fa-solid fa-code mr-1 text-sky-600"></i>
+                            <span id="export-day-label" class="text-xmas-red underline">DAY 1</span> 現有行程 JSON
+                        </h2>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button onclick="copyCurrentDayJSON()" class="xmas-button bg-sky-600 hover:bg-sky-700 text-white px-2 py-1 text-[11px] font-black flex items-center gap-1">
+                            <i class="fa-solid fa-copy"></i> Copy
+                        </button>
+                        <button onclick="exportCurrentDayJSON()" class="xmas-button bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 text-[11px] font-black flex items-center gap-1">
+                            <i class="fa-solid fa-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+                <p class="text-[11px] font-bold text-gray-500">複製或下載當日行程 JSON 貼畀 AI 做參考。</p>
+                
+                <!-- JSON Code Block 容器 (預設限制高度與淡出效果，點擊 Show More 展開) -->
+                <div class="relative rounded-2xl border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+                    <div class="flex justify-between items-center text-[11px] font-black text-gray-500">
+                        <span>json</span>
+                        <span id="json-code-day-title" class="text-sky-700">DAY 1</span>
+                    </div>
+
+                    <div id="json-code-wrapper" class="relative max-h-36 overflow-hidden transition-all duration-300">
+                        <pre id="json-code-block" class="font-mono text-[11px] leading-relaxed text-emerald-800 whitespace-pre-wrap break-all">{ "schedule": [] }</pre>
+                        <!-- 淡出遮罩 (未展開時顯示) -->
+                        <div id="json-fade-overlay" class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+                    </div>
+
+                    <!-- 參考圖片樣式嘅 Pill Shape Show More 掣 -->
+                    <div class="pt-1 flex justify-center">
+                        <button id="show-more-json-btn" onclick="toggleJsonCodeExpand()" class="w-full bg-white hover:bg-gray-100 text-sky-700 font-bold text-xs py-2 px-4 rounded-full border border-sky-300 shadow-sm flex items-center justify-center gap-1.5 transition">
+                            <span id="show-more-text">Show more</span>
+                            <i id="show-more-icon" class="fa-solid fa-chevron-down text-xs transition-transform duration-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <span id="json-copy-toast" class="text-[10px] font-bold text-emerald-600 text-center block hidden">✓ 已成功複製 JSON 到剪貼簿！</span>
+            </section>
+
+            <!-- Step 1: 單日專屬 AI Prompt 生成與複製卡片 -->
+            <section class="xmas-box p-4 bg-white space-y-3">
+                <div class="flex items-center gap-2 border-b-2 border-dashed border-gray-100 pb-2">
+                    <span class="bg-xmas-green text-white text-xs font-black px-2 py-0.5 rounded-md">Step 1</span>
+                    <h2 class="font-black text-sm text-xmas-green">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1 text-amber-500"></i>
+                        生成 <span id="prompt-day-label" class="text-xmas-red underline">DAY 1</span> 專屬 AI Prompt
+                    </h2>
+                </div>
+                <p class="text-[11px] font-bold text-gray-500">輸入你想加喺當日嘅地點/活動，系統會連同現有行程及酒店資料 JSON 打包成只針對該日嘅 Prompt。</p>
+                
+                <textarea id="user-idea" rows="2" class="w-full xmas-box-sm p-2.5 text-xs font-bold outline-none bg-gray-50" placeholder="例如：14:00 去淺草寺雷門，之後食花月堂菠蘿麵包"></textarea>
+                
+                <button onclick="copyGeneratedPrompt()" class="w-full xmas-button bg-xmas-green text-white py-2 font-black text-xs hover:bg-emerald-800 flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-copy"></i> 複製 <span id="prompt-btn-day-label">DAY 1</span> 專用 Prompt
+                </button>
+                <span id="copy-toast" class="text-[10px] font-bold text-emerald-600 text-center block hidden">✓ 已成功複製包含現有行程 JSON 的 Prompt！</span>
+            </section>
+
+            <!-- Step 2: 單日專屬 AI JSON 匯入區 -->
+            <section class="xmas-box p-4 bg-gradient-to-br from-xmas-lightGreen to-white space-y-3">
+                <div class="flex items-center justify-between border-b-2 border-dashed border-emerald-200 pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-xmas-red text-white text-xs font-black px-2 py-0.5 rounded-md">Step 2</span>
+                        <h2 class="font-black text-sm text-xmas-green">
+                            <i class="fa-solid fa-file-import mr-1"></i> 匯入 AI 生成 JSON 到 <span id="import-day-label" class="text-xmas-red underline">DAY 1</span>
+                        </h2>
+                    </div>
+                    <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">只增不刪 🛡️</span>
+                </div>
+                
+                <p class="text-[11px] font-bold text-gray-600">匯入 AI 生成好的 JSON 檔案，或直接貼上 JSON 文字。系統會先比對預覽，確認後才追加至當日行程。</p>
+                
+                <label class="w-full xmas-button bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 font-black text-xs flex items-center justify-center cursor-pointer">
+                    <i class="fa-solid fa-file-import mr-1.5"></i> 選擇 JSON 檔案並預覽
+                    <input type="file" id="import-input" accept=".json" onchange="previewImportData(event)" class="hidden">
+                </label>
+
+                <div class="flex items-center gap-2 text-[10px] font-black text-gray-400">
+                    <span class="h-px flex-1 bg-emerald-200"></span>
+                    或貼上 JSON 文字
+                    <span class="h-px flex-1 bg-emerald-200"></span>
+                </div>
+
+                <textarea id="import-json-text" rows="5" class="w-full xmas-box-sm p-2.5 font-mono text-[11px] leading-relaxed outline-none bg-white" placeholder='例如：{"new_items":{"1":[{"time":"14:00","title":"淺草寺"}]}}'></textarea>
+
+                <button onclick="previewImportText()" class="w-full xmas-button bg-sky-600 hover:bg-sky-700 text-white py-2.5 font-black text-xs flex items-center justify-center">
+                    <i class="fa-solid fa-code mr-1.5"></i> 預覽貼上的 JSON
+                </button>
+            </section>
+        </div>
+
+        <!-- 返回主頁按鈕 -->
+        <div class="text-center pt-4">
+            <a href="index.html" class="inline-flex items-center text-xs font-black text-xmas-green hover:underline bg-white px-3 py-1.5 xmas-box-sm">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i> 返回遊客檢視主頁 (index.html)
+            </a>
+        </div>
+
+    </main>
+
+    <!-- 預覽與確認 Modal (Pre-import Preview) -->
+    <div id="preview-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="xmas-box bg-white p-5 max-w-md w-full space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-black text-base text-xmas-green flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-sky-600"></i> 新增行程預覽 (Pre-import Preview)
+                </h3>
+                <span id="modal-target-day-badge" class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">DAY 1 只增不刪</span>
+            </div>
+            
+            <p class="text-xs font-bold text-gray-600">系統已過濾舊資料，以下為<span class="text-xmas-red font-black">即將追加至當日的新行程</span>：</p>
+            
+            <div id="preview-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1 my-2">
+                <!-- 動態載入待新增行程 -->
+            </div>
+
+            <div class="flex gap-2 justify-end pt-3 border-t">
+                <button onclick="closePreviewModal()" class="xmas-button bg-gray-200 px-4 py-2 font-bold text-xs">取消</button>
+                <button id="confirm-sync-btn" onclick="confirmAppendToFirebase()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-xs">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 確認追加並同步去 Firebase
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK 引入 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyAQJatKRC34MbBlyY7pmhQdluf0qKNShJg",
+          authDomain: "tokyo-trip-2026-83a1e.firebaseapp.com",
+          projectId: "tokyo-trip-2026-83a1e",
+          storageBucket: "tokyo-trip-2026-83a1e.firebasestorage.app",
+          messagingSenderId: "161190483036",
+          appId: "1:161190483036:web:7f4d9c000b678de6ec0299"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const docRef = doc(db, "trips", "tokyo_2026");
+        
+        const syncStatus = document.getElementById('sync-status');
+        let currentFirebaseData = { schedule: {} };
+        let activeDay = 1;
+        let itemsToAppend = [];
+        let isJsonExpanded = false;
+
+        const dayDatesMap = {
+            1: "12/15 (二)",
+            2: "12/16 (三)",
+            3: "12/17 (四)",
+            4: "12/18 (五)",
+            5: "12/19 (六)",
+            6: "12/20 (日)",
+            7: "12/21 (一)",
+            8: "12/22 (二)"
+        };
+
+        const hotelDetails = [
+            {
+                name: "Hotel Intergate Tokyo Kyobashi",
+                japanese_name: "ホテルインターゲート 東京 京橋",
+                stay: "2026-12-15 to 2026-12-16",
+                check_in: "2026-12-15 15:00 or later",
+                check_out: "2026-12-16 11:00 or earlier",
+                address: "中央区京橋3-7-11, 東京"
+            },
+            {
+                name: "Hotel Grand Hills Shizuoka",
+                japanese_name: "ホテルグランヒルズ静岡",
+                stay: "2026-12-16 to 2026-12-18",
+                check_in: "2026-12-16 14:00 or later",
+                check_out: "2026-12-18 11:00 or earlier",
+                address: "駿河区南町18-1, 靜岡"
+            },
+            {
+                name: "Shizutetsu Hotel Prezio Tokyo Tamachi",
+                japanese_name: "静鉄ホテルプレジオ東京田町",
+                stay: "2026-12-18 to 2026-12-22",
+                check_in: "2026-12-18 15:00 or later",
+                check_out: "2026-12-22 11:00 or earlier",
+                address: "3-6-18 Shibaura, 東京, 日本, 108-0023"
+            }
+        ];
+
+        // 收合/展開 上方行程清單 Accordion 邏輯
+        window.toggleScheduleAccordion = function() {
+            const content = document.getElementById('schedule-accordion-content');
+            const arrow = document.getElementById('accordion-arrow');
+            const statusText = document.getElementById('accordion-status-text');
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                arrow.style.transform = 'rotate(180deg)';
+                statusText.innerText = '收合行程列表';
+            } else {
+                content.classList.add('hidden');
+                arrow.style.transform = 'rotate(0deg)';
+                statusText.innerText = '檢視當日行程';
+            }
+        };
+
+        // 控制 JSON Code Block 的 Show More / Show Less 展開狀態
+        window.toggleJsonCodeExpand = function() {
+            const wrapper = document.getElementById('json-code-wrapper');
+            const overlay = document.getElementById('json-fade-overlay');
+            const text = document.getElementById('show-more-text');
+            const icon = document.getElementById('show-more-icon');
+
+            isJsonExpanded = !isJsonExpanded;
+
+            if (isJsonExpanded) {
+                wrapper.classList.remove('max-h-36');
+                wrapper.classList.add('max-h-none');
+                overlay.classList.add('hidden');
+                text.innerText = 'Show less';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                wrapper.classList.remove('max-h-none');
+                wrapper.classList.add('max-h-36');
+                overlay.classList.remove('hidden');
+                text.innerText = 'Show more';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        };
+
+        // 更新 JSON Code Block 內容
+        function updateJsonCodeBlock() {
+            const daySchedule = (currentFirebaseData.schedule && currentFirebaseData.schedule[activeDay]) || [];
+            const exportData = {
+                day: activeDay,
+                date: dayDatesMap[activeDay] || "",
+                schedule: daySchedule
+            };
+
+            const jsonString = JSON.stringify(exportData, null, 2);
+            document.getElementById('json-code-block').innerText = jsonString;
+            document.getElementById('json-code-day-title').innerText = `DAY ${activeDay}`;
+        }
+
+        // 複製 JSON 文字
+        window.copyCurrentDayJSON = function() {
+            const jsonText = document.getElementById('json-code-block').innerText;
+            navigator.clipboard.writeText(jsonText).then(() => {
+                const toast = document.getElementById('json-copy-toast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+            });
+        };
+
+        // 下載 JSON 檔案
+        window.exportCurrentDayJSON = function() {
+            const daySchedule = (currentFirebaseData.schedule && currentFirebaseData.schedule[activeDay]) || [];
+            const exportData = {
+                day: activeDay,
+                date: dayDatesMap[activeDay] || "",
+                schedule: daySchedule
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `tokyo_trip_day${activeDay}_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        };
+
+        // 更新 UI 上的 Day 標籤文字
+        function updateSelectedDayLabels() {
+            const dateStr = dayDatesMap[activeDay] || "";
+            document.getElementById('selected-target-day-title').innerText = `DAY ${activeDay} (${dateStr})`;
+            document.getElementById('export-day-label').innerText = `DAY ${activeDay}`;
+            document.getElementById('prompt-day-label').innerText = `DAY ${activeDay}`;
+            document.getElementById('prompt-btn-day-label').innerText = `DAY ${activeDay}`;
+            document.getElementById('import-day-label').innerText = `DAY ${activeDay}`;
+            document.getElementById('modal-target-day-badge').innerText = `DAY ${activeDay} 只增不刪`;
+            updateJsonCodeBlock();
+        }
+
+        // 實時監聽 Firebase 資料並渲染 UI
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                currentFirebaseData = docSnap.data();
+                syncStatus.innerHTML = `<i class="fa-solid fa-cloud mr-1 text-emerald-600"></i> 已雲端同步`;
+                syncStatus.className = "text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 xmas-box-sm flex items-center";
+            } else {
+                syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 無資料`;
+            }
+            renderScheduleTabs();
+            renderScheduleContent();
+            updateSelectedDayLabels();
+        }, (err) => {
+            syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 離線模式`;
+        });
+
+        function isValidUrl(str) {
+            try { return str.startsWith('http://') || str.startsWith('https://'); } catch (e) { return false; }
+        }
+
+        // 渲染 DAY 1 - DAY 8 按鈕
+        function renderScheduleTabs() {
+            const container = document.getElementById('day-tabs');
+            container.innerHTML = '';
+            
+            const dates = [
+                { day: 1, location: "東京", date: "12/15 (二)" },
+                { day: 2, location: "靜岡", date: "12/16 (三)" },
+                { day: 3, location: "靜岡", date: "12/17 (四)" },
+                { day: 4, location: "靜岡", date: "12/18 (五)" },
+                { day: 5, location: "東京", date: "12/19 (六)" },
+                { day: 6, location: "東京", date: "12/20 (日)" },
+                { day: 7, location: "東京", date: "12/21 (一)" },
+                { day: 8, location: "東京", date: "12/22 (二)" },
+            ];
+
+            dates.forEach(d => {
+                const isSelected = activeDay === d.day;
+                const isShizuoka = [2, 3, 4].includes(d.day);
+                const btn = document.createElement('button');
+                btn.className = `xmas-button px-3.5 py-2 rounded-xl text-center whitespace-nowrap transition ${isSelected ? (isShizuoka ? 'bg-emerald-600 text-white' : 'bg-xmas-green text-white') : (isShizuoka ? 'bg-emerald-50 text-emerald-900' : 'bg-white text-gray-800')}`;
+                btn.innerHTML = `
+                    <div class="text-[10px] font-bold opacity-80">DAY ${d.day}</div>
+                    <div class="text-xs font-black my-0.5">${d.location}</div>
+                    <div class="font-black text-sm">${d.date}</div>
+                `;
+                btn.onclick = () => {
+                    activeDay = d.day;
+                    renderScheduleTabs();
+                    renderScheduleContent();
+                    updateSelectedDayLabels();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 渲染當日行程卡片
+        function renderScheduleContent() {
+            const container = document.getElementById('day-content');
+            let items = (currentFirebaseData.schedule && currentFirebaseData.schedule[activeDay]) || [];
+            
+            items.sort((a, b) => {
+                const timeA = a.time || '23:59';
+                const timeB = b.time || '23:59';
+                if (timeA === '全日') return -1;
+                if (timeB === '全日') return 1;
+                return timeA.localeCompare(timeB);
+            });
+
+            const isShizuoka = [2, 3, 4].includes(activeDay);
+            let html = `
+                <div class="flex justify-between items-center pb-2 border-b-2 border-gray-100">
+                    <div>
+                        <span class="text-xs font-black px-2.5 py-1 xmas-box-sm ${isShizuoka ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}">DAY ${activeDay}</span>
+                        <h3 class="font-black text-base mt-1 text-xmas-green">${isShizuoka ? '<i class="fa-solid fa-mountain mr-1 text-emerald-600"></i> 靜岡 / 富士山冬日行程' : '<i class="fa-solid fa-city mr-1 text-xmas-red"></i> 東京聖誕漫遊'}</h3>
+                    </div>
+                </div>
+                <div class="space-y-2">
+            `;
+
+            if (items.length === 0) {
+                html += `<p class="text-xs font-bold text-gray-400 text-center py-4">這一天還沒有行程，使用下方 Step 1/2 為 DAY ${activeDay} 新增行程吧！</p>`;
+            } else {
+                items.forEach((item) => {
+                    const rawLocation = item.location ? item.location.trim() : '';
+                    const hasLocation = rawLocation !== '';
+                    const isUrl = isValidUrl(rawLocation);
+                    const mapUrl = isUrl ? rawLocation : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawLocation)}`;
+                    
+                    let displayLocation = hasLocation ? (isUrl ? '地圖連結' : (rawLocation.length > 10 ? rawLocation.substring(0, 10) + '...' : rawLocation)) : '';
+                    
+                    html += `
+                        <div class="xmas-box-sm bg-gray-50/70 p-3 flex justify-between items-start">
+                            <div class="space-y-1 pr-2 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded-md">${item.time}</span>
+                                    ${hasLocation ? `
+                                        <a href="${mapUrl}" target="_blank" class="text-xs font-black text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1 transition">
+                                            <i class="fa-solid fa-location-dot text-xmas-red"></i> ${displayLocation}
+                                        </a>
+                                    ` : ''}
+                                </div>
+                                <h4 class="font-black text-sm text-gray-800 mt-1">${item.title}</h4>
+                                <p class="text-xs font-bold text-gray-600">${item.desc || ''}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        // Step 1: 複製該單日專屬的 AI Prompt
+        window.copyGeneratedPrompt = function() {
+            const userText = document.getElementById('user-idea').value.trim();
+            if (!userText) {
+                alert(`請先輸入你想加喺 DAY ${activeDay} 嘅行程想法！`);
+                return;
+            }
+
+            const dateStr = dayDatesMap[activeDay] || "";
+            const currentDayJSON = document.getElementById('json-code-block').innerText;
+            const hotelDetailsJSON = JSON.stringify(hotelDetails, null, 2);
+            const promptText = `請幫我將以下【DAY ${activeDay} (${dateStr})】的行程需求，轉化為標準 JSON 格式。
+
+【DAY ${activeDay} 現有行程 JSON（只供參考，請勿重複）】：
+${currentDayJSON}
+
+【酒店資料 JSON（請考慮住宿位置、入住及退房時間來規劃路線）】：
+${hotelDetailsJSON}
+
+【行程需求 (DAY ${activeDay})】：
+${userText}
+
+【輸出 JSON 格式要求】：
+請只輸出純粹的 JSON 格式，必須固定只包含 Day ${activeDay} (字串 Key 為 "${activeDay}") 的新增陣列，範例如下：
+{
+  "new_items": {
+    "${activeDay}": [
+      {
+        "time": "14:00",
+        "title": "行程標題",
+        "location": "目的地地點名稱(Optional)",
+        "desc": "詳細備註說明"
+      }
+    ]
+  }
+}`;
+
+            navigator.clipboard.writeText(promptText).then(() => {
+                const toast = document.getElementById('copy-toast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+            });
+        };
+
+        // Step 2: 預覽 JSON 檔內容 (只專注於當前選擇的 activeDay)
+        window.previewImportData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImportJSON(e.target.result, "JSON 檔案");
+            };
+            reader.onerror = function() {
+                alert("讀取 JSON 檔案失敗，請重新選擇檔案。");
+            };
+            reader.readAsText(file);
+        };
+
+        window.previewImportText = function() {
+            const jsonText = document.getElementById('import-json-text').value.trim();
+            if (!jsonText) {
+                alert("請先貼上 JSON 文字。");
+                return;
+            }
+
+            previewImportJSON(jsonText, "JSON 文字");
+        };
+
+        async function previewImportJSON(jsonText, sourceLabel) {
+            try {
+                const importedJSON = JSON.parse(jsonText);
+                itemsToAppend = [];
+                const targetSchedule = importedJSON.new_items || importedJSON.schedule;
+
+                if (!targetSchedule) {
+                    alert("無效的 JSON 格式！必須包含 new_items 或 schedule 欄位。");
+                    return;
+                }
+
+                const docSnap = await getDoc(docRef);
+                currentFirebaseData = docSnap.data();
+                const existingSchedule = currentFirebaseData.schedule || {};
+                const existDayItems = existingSchedule[activeDay] || [];
+
+                const newItemsForThisDay = targetSchedule[activeDay] || targetSchedule[String(activeDay)] || (Array.isArray(targetSchedule) ? targetSchedule : []);
+
+                if (Array.isArray(newItemsForThisDay)) {
+                    newItemsForThisDay.forEach(newItem => {
+                        const isDuplicate = existDayItems.some(ex => ex.title === newItem.title && ex.time === newItem.time);
+                        if (!isDuplicate) {
+                            itemsToAppend.push({
+                                day: activeDay,
+                                time: newItem.time || "10:00",
+                                title: newItem.title || "",
+                                location: newItem.location || "",
+                                desc: newItem.desc || ""
+                            });
+                        }
+                    });
+                }
+
+                renderPreviewModal();
+            } catch (err) {
+                alert(`解析${sourceLabel}失敗：${err.message}`);
+            }
+        }
+
+        function renderPreviewModal() {
+            const container = document.getElementById('preview-list-container');
+            const confirmBtn = document.getElementById('confirm-sync-btn');
+            
+            if (itemsToAppend.length === 0) {
+                container.innerHTML = `<p class="text-xs font-bold text-gray-400 text-center py-6">沒有偵測到 DAY ${activeDay} 的任何全新行程 (全部已存在或內容為空)。</p>`;
+                confirmBtn.disabled = true;
+                confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                let html = '';
+                itemsToAppend.forEach((item) => {
+                    html += `
+                        <div class="xmas-box-sm p-3 bg-emerald-50/60 border-emerald-300 text-xs space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded">DAY ${item.day} | ${item.time}</span>
+                                <span class="text-[10px] font-bold text-emerald-800"><i class="fa-solid fa-plus mr-1"></i>追加至 DAY ${item.day}</span>
+                            </div>
+                            <div class="font-black text-gray-800 text-sm mt-1">${item.title}</div>
+                            ${item.location ? `<div class="text-gray-600 font-bold text-[11px]"><i class="fa-solid fa-location-dot text-xmas-red"></i> ${item.location}</div>` : ''}
+                            ${item.desc ? `<div class="text-gray-500 font-bold text-[11px]">${item.desc}</div>` : ''}
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+
+            document.getElementById('preview-modal').classList.remove('hidden');
+        }
+
+        window.closePreviewModal = function() {
+            document.getElementById('preview-modal').classList.add('hidden');
+            document.getElementById('import-input').value = '';
+        }
+
+        // 安全寫入 Firebase
+        window.confirmAppendToFirebase = async function() {
+            if (itemsToAppend.length === 0) return;
+
+            try {
+                const docSnap = await getDoc(docRef);
+                const freshData = docSnap.data();
+
+                itemsToAppend.forEach(item => {
+                    if (!freshData.schedule[item.day]) {
+                        freshData.schedule[item.day] = [];
+                    }
+                    freshData.schedule[item.day].push({
+                        time: item.time,
+                        title: item.title,
+                        location: item.location,
+                        desc: item.desc
+                    });
+
+                    freshData.schedule[item.day].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+                });
+
+                await setDoc(docRef, freshData);
+                alert(`🎉 成功將 ${itemsToAppend.length} 個新行程追加至 DAY ${activeDay}！` );
+                document.getElementById('import-json-text').value = '';
+                closePreviewModal();
+            } catch (e) {
+                alert("寫入 Firebase 失敗：" + e.message);
+            }
+        };
+    </script>
+</body>
+</html>
