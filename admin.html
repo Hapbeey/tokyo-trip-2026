@@ -154,14 +154,14 @@
                         生成 <span id="prompt-day-label" class="text-xmas-red underline">DAY 1</span> 專屬 AI Prompt
                     </h2>
                 </div>
-                <p class="text-[11px] font-bold text-gray-500">輸入你想加喺當日嘅地點/活動，系統會連同現有行程及酒店資料 JSON 打包成只針對該日嘅 Prompt。</p>
+                <p class="text-[11px] font-bold text-gray-500">輸入你想加喺當日嘅地點/活動，AI 會先提出易讀行程方案；你確認後，AI 才會生成可匯入的 JSON。</p>
                 
                 <textarea id="user-idea" rows="2" class="w-full xmas-box-sm p-2.5 text-xs font-bold outline-none bg-gray-50" placeholder="例如：14:00 去淺草寺雷門，之後食花月堂菠蘿麵包"></textarea>
                 
                 <button onclick="copyGeneratedPrompt()" class="w-full xmas-button bg-xmas-green text-white py-2 font-black text-xs hover:bg-emerald-800 flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-copy"></i> 複製 <span id="prompt-btn-day-label">DAY 1</span> 專用 Prompt
                 </button>
-                <span id="copy-toast" class="text-[10px] font-bold text-emerald-600 text-center block hidden">✓ 已成功複製包含現有行程 JSON 的 Prompt！</span>
+                <span id="copy-toast" class="text-[10px] font-bold text-emerald-600 text-center block hidden">✓ 已複製「先提案、確認後生成 JSON」的專用 Prompt！</span>
             </section>
 
             <!-- Step 2: 單日專屬 AI JSON 匯入區 -->
@@ -512,7 +512,7 @@
             const dateStr = dayDatesMap[activeDay] || "";
             const currentDayJSON = document.getElementById('json-code-block').innerText;
             const hotelDetailsJSON = JSON.stringify(hotelDetails, null, 2);
-            const promptText = `請幫我將以下【DAY ${activeDay} (${dateStr})】的行程需求，轉化為標準 JSON 格式。
+            const promptText = `請根據以下資料，協助規劃【DAY ${activeDay} (${dateStr})】的行程。請嚴格按照下方兩階段流程回覆，不要直接生成 JSON。
 
 【DAY ${activeDay} 現有行程 JSON（只供參考，請勿重複）】：
 ${currentDayJSON}
@@ -523,8 +523,19 @@ ${hotelDetailsJSON}
 【行程需求 (DAY ${activeDay})】：
 ${userText}
 
-【輸出 JSON 格式要求】：
-請只輸出純粹的 JSON 格式，必須固定只包含 Day ${activeDay} (字串 Key 為 "${activeDay}") 的新增陣列，範例如下：
+【第一階段：行程提案】
+1. 先以清晰易讀的繁體中文提出行程方案，不要輸出 JSON 或程式碼區塊。
+2. 方案需列出建議時間、活動次序、地點、交通或移動考量，以及相關酒店入住／退房限制。
+3. 請參考現有行程避免重複，並說明重要的路線安排或時間取捨。
+4. 提案後詢問我是否確認，或需要修改。
+5. 如我提出修改，請更新人類可讀的方案並再次等待確認。只有收到任何明確的同意或確認後，才進入第二階段。
+
+【第二階段：確認後生成 JSON】
+1. 先用一句簡短文字確認將按已同意的方案生成 JSON。
+2. 接着在獨立的 \`\`\`json 程式碼區塊內輸出 JSON，方便我只複製該區塊至匯入工具。
+3. JSON 必須只包含獲確認的新增行程，不得包含解說文字或現有行程，並固定使用以下格式：
+
+\`\`\`json
 {
   "new_items": {
     "${activeDay}": [
@@ -536,7 +547,9 @@ ${userText}
       }
     ]
   }
-}`;
+}
+\`\`\`
+4. JSON 程式碼區塊後不要再加入其他內容。`;
 
             navigator.clipboard.writeText(promptText).then(() => {
                 const toast = document.getElementById('copy-toast');
