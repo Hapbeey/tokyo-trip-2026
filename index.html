@@ -517,7 +517,7 @@
             </div>
             
             <!-- 內嵌 Google Map 即時預覽 Widget -->
-            <div>
+            <div id="map-preview-widget" class="hidden">
                 <div class="flex justify-between items-center mb-1">
                     <label class="text-xs font-bold block text-gray-700"><i class="fa-solid fa-map-location-dot text-xmas-red mr-1"></i> 地圖即時預覽</label>
                     <a id="modal-external-map-link" href="#" target="_blank" class="text-[10px] font-bold text-blue-600 hover:underline">在 Google Maps 開啟 ↗</a>
@@ -1072,11 +1072,19 @@
 
         window.updateMapPreview = function() {
             const locInput = document.getElementById('input-location').value.trim();
+            const previewWidget = document.getElementById('map-preview-widget');
             const iframeWrapper = document.getElementById('map-iframe-wrapper');
             const noticePanel = document.getElementById('map-url-notice');
             const iframe = document.getElementById('map-preview-iframe');
             const extLink = document.getElementById('modal-external-map-link');
 
+            if (!locInput) {
+                previewWidget.classList.add('hidden');
+                iframe.src = 'about:blank';
+                return;
+            }
+
+            previewWidget.classList.remove('hidden');
             if (isValidUrl(locInput)) {
                 iframeWrapper.classList.add('hidden');
                 noticePanel.classList.remove('hidden');
@@ -1084,10 +1092,8 @@
             } else {
                 iframeWrapper.classList.remove('hidden');
                 noticePanel.classList.add('hidden');
-                const titleInput = document.getElementById('input-title').value.trim();
-                const query = locInput || titleInput || '東京';
-                iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
-                extLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+                iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(locInput)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+                extLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locInput)}`;
             }
         }
 
