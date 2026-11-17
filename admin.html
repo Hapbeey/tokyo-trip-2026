@@ -615,11 +615,48 @@ ${userText}
                     return;
                 }
 
+                const jsonDays = new Set();
+                const collectScheduleDays = (schedule) => {
+                    if (!schedule) return;
+                    if (Array.isArray(schedule)) {
+                        const exportedDay = Number(importedJSON.day);
+                        if (schedule.length > 0 && Number.isInteger(exportedDay) && exportedDay >= 1 && exportedDay <= 8) {
+                            jsonDays.add(exportedDay);
+                        }
+                        return;
+                    }
+
+                    Object.entries(schedule).forEach(([day, items]) => {
+                        const dayNumber = Number(day);
+                        if (Array.isArray(items) && items.length > 0 && Number.isInteger(dayNumber) && dayNumber >= 1 && dayNumber <= 8) {
+                            jsonDays.add(dayNumber);
+                        }
+                    });
+                };
+                collectScheduleDays(addedSchedule);
+                collectScheduleDays(updatedSchedule);
+
+                let targetDay = activeDay;
+                if (!jsonDays.has(activeDay)) {
+                    if (jsonDays.size === 1) {
+                        targetDay = [...jsonDays][0];
+                    } else if (jsonDays.size > 1) {
+                        alert(`JSON 包含多個日期（DAY ${[...jsonDays].sort((a, b) => a - b).join('、DAY ')}），請先選擇要預覽的日期。`);
+                        return;
+                    }
+                }
+
                 const docSnap = await getDoc(docRef);
                 if (!docSnap.exists()) {
                     throw new Error("Firebase 尚未建立行程資料。");
                 }
                 currentFirebaseData = docSnap.data();
+                if (targetDay !== activeDay) {
+                    activeDay = targetDay;
+                    renderScheduleTabs();
+                    renderScheduleContent();
+                    updateSelectedDayLabels();
+                }
                 const existingSchedule = currentFirebaseData.schedule || {};
                 const existDayItems = existingSchedule[activeDay] || [];
 
