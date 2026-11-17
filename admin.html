@@ -154,9 +154,9 @@
                         生成 <span id="prompt-day-label" class="text-xmas-red underline">DAY 1</span> 專屬 AI Prompt
                     </h2>
                 </div>
-                <p class="text-[11px] font-bold text-gray-500">輸入你想加喺當日嘅地點/活動，AI 會先提出易讀行程方案；你確認後，AI 才會生成可匯入的 JSON。</p>
+                <p class="text-[11px] font-bold text-gray-500">輸入你想新增或修改嘅當日行程，AI 會先提出易讀方案；你確認後，AI 才會生成可匯入的 JSON。</p>
                 
-                <textarea id="user-idea" rows="2" class="w-full xmas-box-sm p-2.5 text-xs font-bold outline-none bg-gray-50" placeholder="例如：14:00 去淺草寺雷門，之後食花月堂菠蘿麵包"></textarea>
+                <textarea id="user-idea" rows="2" class="w-full xmas-box-sm p-2.5 text-xs font-bold outline-none bg-gray-50" placeholder="例如：新增 14:00 淺草寺，或將 10:00 築地市場改為 09:00"></textarea>
                 
                 <button onclick="copyGeneratedPrompt()" class="w-full xmas-button bg-xmas-green text-white py-2 font-black text-xs hover:bg-emerald-800 flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-copy"></i> 複製 <span id="prompt-btn-day-label">DAY 1</span> 專用 Prompt
@@ -173,10 +173,9 @@
                             <i class="fa-solid fa-file-import mr-1"></i> 匯入 AI 生成 JSON 到 <span id="import-day-label" class="text-xmas-red underline">DAY 1</span>
                         </h2>
                     </div>
-                    <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">只增不刪 🛡️</span>
                 </div>
                 
-                <p class="text-[11px] font-bold text-gray-600">匯入 AI 生成好的 JSON 檔案，或直接貼上 JSON 文字。系統會先比對預覽，確認後才追加至當日行程。</p>
+                <p class="text-[11px] font-bold text-gray-600">匯入 AI 生成好的 JSON 檔案，或直接貼上 JSON 文字。系統會先比對預覽新增及編輯內容，確認後才同步至當日行程。</p>
                 
                 <label class="w-full xmas-button bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 font-black text-xs flex items-center justify-center cursor-pointer">
                     <i class="fa-solid fa-file-import mr-1.5"></i> 選擇 JSON 檔案並預覽
@@ -211,12 +210,17 @@
         <div class="xmas-box bg-white p-5 max-w-md w-full space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-2">
                 <h3 class="font-black text-base text-xmas-green flex items-center gap-1.5">
-                    <i class="fa-solid fa-eye text-sky-600"></i> 新增行程預覽 (Pre-import Preview)
+                    <i class="fa-solid fa-eye text-sky-600"></i> 行程變更預覽 (Pre-import Preview)
                 </h3>
-                <span id="modal-target-day-badge" class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">DAY 1 只增不刪</span>
+                <span id="modal-target-day-badge" class="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded">DAY 1 新增 / 編輯</span>
             </div>
             
-            <p class="text-xs font-bold text-gray-600">系統已過濾舊資料，以下為<span class="text-xmas-red font-black">即將追加至當日的新行程</span>：</p>
+            <p class="text-xs font-bold text-gray-600">
+                <span class="text-emerald-700 font-black">綠色為新增</span>，
+                <span class="text-amber-700 font-black">黃色為編輯</span>。確認後將一次過同步以下變更：
+            </p>
+
+            <p id="preview-validation-error" class="hidden text-[11px] font-bold text-red-700 bg-red-50 border border-red-300 rounded-lg px-3 py-2"></p>
             
             <div id="preview-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1 my-2">
                 <!-- 動態載入待新增行程 -->
@@ -224,8 +228,8 @@
 
             <div class="flex gap-2 justify-end pt-3 border-t">
                 <button onclick="closePreviewModal()" class="xmas-button bg-gray-200 px-4 py-2 font-bold text-xs">取消</button>
-                <button id="confirm-sync-btn" onclick="confirmAppendToFirebase()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-xs">
-                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 確認追加並同步去 Firebase
+                <button id="confirm-sync-btn" onclick="confirmChangesToFirebase()" class="xmas-button bg-xmas-green text-white px-4 py-2 font-black text-xs">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 確認變更並同步去 Firebase
                 </button>
             </div>
         </div>
@@ -252,7 +256,8 @@
         const syncStatus = document.getElementById('sync-status');
         let currentFirebaseData = { schedule: {} };
         let activeDay = 1;
-        let itemsToAppend = [];
+        let pendingChanges = [];
+        const previewEditingIndexes = new Set();
         let isJsonExpanded = false;
 
         const dayDatesMap = {
@@ -384,7 +389,7 @@
             document.getElementById('prompt-day-label').innerText = `DAY ${activeDay}`;
             document.getElementById('prompt-btn-day-label').innerText = `DAY ${activeDay}`;
             document.getElementById('import-day-label').innerText = `DAY ${activeDay}`;
-            document.getElementById('modal-target-day-badge').innerText = `DAY ${activeDay} 只增不刪`;
+            document.getElementById('modal-target-day-badge').innerText = `DAY ${activeDay} 新增 / 編輯`;
             updateJsonCodeBlock();
         }
 
@@ -514,7 +519,7 @@
             const hotelDetailsJSON = JSON.stringify(hotelDetails, null, 2);
             const promptText = `請根據以下資料，協助規劃【DAY ${activeDay} (${dateStr})】的行程。請嚴格按照下方兩階段流程回覆，不要直接生成 JSON。
 
-【DAY ${activeDay} 現有行程 JSON（只供參考，請勿重複）】：
+【DAY ${activeDay} 現有行程 JSON（用於判斷新增或編輯項目）】：
 ${currentDayJSON}
 
 【酒店資料 JSON（請考慮住宿位置、入住及退房時間來規劃路線）】：
@@ -533,7 +538,9 @@ ${userText}
 【第二階段：確認後生成 JSON】
 1. 先用一句簡短文字確認將按已同意的方案生成 JSON。
 2. 接着在獨立的 \`\`\`json 程式碼區塊內輸出 JSON，方便我只複製該區塊至匯入工具。
-3. JSON 必須只包含獲確認的新增行程，不得包含解說文字或現有行程，並固定使用以下格式：
+3. JSON 必須只包含獲確認的新增或編輯操作，不得包含解說文字或未變更的現有行程。
+4. 新增項目放在 new_items。編輯項目放在 updated_items，並以現有資料完全一致的 original_time 及 original_title 指定要修改的項目；time、title、location、desc 則填寫修改後的完整內容。
+5. 如沒有新增或編輯項目，對應欄位使用空陣列。固定使用以下格式：
 
 \`\`\`json
 {
@@ -546,10 +553,22 @@ ${userText}
         "desc": "詳細備註說明"
       }
     ]
+  },
+  "updated_items": {
+    "${activeDay}": [
+      {
+        "original_time": "10:00",
+        "original_title": "現有行程標題",
+        "time": "09:00",
+        "title": "修改後行程標題",
+        "location": "修改後目的地地點名稱(Optional)",
+        "desc": "修改後詳細備註說明"
+      }
+    ]
   }
 }
 \`\`\`
-4. JSON 程式碼區塊後不要再加入其他內容。`;
+6. JSON 程式碼區塊後不要再加入其他內容。`;
 
             navigator.clipboard.writeText(promptText).then(() => {
                 const toast = document.getElementById('copy-toast');
@@ -586,35 +605,118 @@ ${userText}
         async function previewImportJSON(jsonText, sourceLabel) {
             try {
                 const importedJSON = JSON.parse(jsonText);
-                itemsToAppend = [];
-                const targetSchedule = importedJSON.new_items || importedJSON.schedule;
+                pendingChanges = [];
+                previewEditingIndexes.clear();
+                const addedSchedule = importedJSON.new_items || importedJSON.schedule;
+                const updatedSchedule = importedJSON.updated_items || importedJSON.edited_items;
 
-                if (!targetSchedule) {
-                    alert("無效的 JSON 格式！必須包含 new_items 或 schedule 欄位。");
+                if (!addedSchedule && !updatedSchedule) {
+                    alert("無效的 JSON 格式！必須包含 new_items、updated_items 或 schedule 欄位。");
                     return;
                 }
 
                 const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    throw new Error("Firebase 尚未建立行程資料。");
+                }
                 currentFirebaseData = docSnap.data();
                 const existingSchedule = currentFirebaseData.schedule || {};
                 const existDayItems = existingSchedule[activeDay] || [];
 
-                const newItemsForThisDay = targetSchedule[activeDay] || targetSchedule[String(activeDay)] || (Array.isArray(targetSchedule) ? targetSchedule : []);
+                const getItemsForActiveDay = (schedule) => {
+                    if (!schedule) return [];
+                    if (Array.isArray(schedule)) return schedule;
+                    return schedule[activeDay] || schedule[String(activeDay)] || [];
+                };
 
-                if (Array.isArray(newItemsForThisDay)) {
-                    newItemsForThisDay.forEach(newItem => {
-                        const isDuplicate = existDayItems.some(ex => ex.title === newItem.title && ex.time === newItem.time);
-                        if (!isDuplicate) {
-                            itemsToAppend.push({
-                                day: activeDay,
-                                time: newItem.time || "10:00",
-                                title: newItem.title || "",
-                                location: newItem.location || "",
-                                desc: newItem.desc || ""
-                            });
-                        }
-                    });
+                const newItemsForThisDay = getItemsForActiveDay(addedSchedule);
+                const updatedItemsForThisDay = getItemsForActiveDay(updatedSchedule);
+
+                if (!Array.isArray(newItemsForThisDay) || !Array.isArray(updatedItemsForThisDay)) {
+                    throw new Error(`DAY ${activeDay} 的新增及編輯內容必須為陣列。`);
                 }
+
+                newItemsForThisDay.forEach(newItem => {
+                    const normalizedItem = {
+                        time: String(newItem.time || "10:00"),
+                        title: String(newItem.title || ""),
+                        location: String(newItem.location || ""),
+                        desc: String(newItem.desc || "")
+                    };
+                    const isDuplicate = existDayItems.some(ex => ex.title === normalizedItem.title && ex.time === normalizedItem.time)
+                        || pendingChanges.some(change => change.type === 'added'
+                            && change.after.title === normalizedItem.title
+                            && change.after.time === normalizedItem.time);
+
+                    if (!isDuplicate) {
+                        pendingChanges.push({
+                            type: 'added',
+                            day: activeDay,
+                            after: normalizedItem
+                        });
+                    }
+                });
+
+                updatedItemsForThisDay.forEach(updatedItem => {
+                    const originalTime = updatedItem.original_time;
+                    const originalTitle = updatedItem.original_title;
+
+                    if (!originalTime || !originalTitle) {
+                        throw new Error("每個 updated_items 項目必須包含 original_time 及 original_title。");
+                    }
+
+                    const matchingIndexes = existDayItems
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item }) => item.time === originalTime && item.title === originalTitle);
+
+                    if (matchingIndexes.length === 0) {
+                        throw new Error(`找不到要編輯的行程：${originalTime} ${originalTitle}`);
+                    }
+                    if (matchingIndexes.length > 1) {
+                        throw new Error(`有多個行程符合 ${originalTime} ${originalTitle}，無法安全編輯。`);
+                    }
+                    if (pendingChanges.some(change => change.type === 'edited'
+                        && change.originalTime === originalTime
+                        && change.originalTitle === originalTitle)) {
+                        throw new Error(`同一行程不能重複編輯：${originalTime} ${originalTitle}`);
+                    }
+
+                    const { item: existingItem, index: existingIndex } = matchingIndexes[0];
+                    const updatedValue = {
+                        time: String(updatedItem.time ?? existingItem.time ?? "10:00"),
+                        title: String(updatedItem.title ?? existingItem.title ?? ""),
+                        location: String(updatedItem.location ?? existingItem.location ?? ""),
+                        desc: String(updatedItem.desc ?? existingItem.desc ?? "")
+                    };
+                    const duplicatesAnotherItem = existDayItems.some((item, index) =>
+                        index !== existingIndex
+                        && item.time === updatedValue.time
+                        && item.title === updatedValue.title
+                    );
+
+                    if (duplicatesAnotherItem) {
+                        throw new Error(`編輯後會與現有行程重複：${updatedValue.time} ${updatedValue.title}`);
+                    }
+
+                    const hasChanged = ['time', 'title', 'location', 'desc']
+                        .some(field => (existingItem[field] || "") !== (updatedValue[field] || ""));
+
+                    if (hasChanged) {
+                        pendingChanges.push({
+                            type: 'edited',
+                            day: activeDay,
+                            originalTime,
+                            originalTitle,
+                            before: {
+                                time: existingItem.time || "",
+                                title: existingItem.title || "",
+                                location: existingItem.location || "",
+                                desc: existingItem.desc || ""
+                            },
+                            after: updatedValue
+                        });
+                    }
+                });
 
                 renderPreviewModal();
             } catch (err) {
@@ -622,69 +724,232 @@ ${userText}
             }
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            })[char]);
+        }
+
+        function getPreviewValidationErrors() {
+            const errors = [];
+            const existingItems = ((currentFirebaseData.schedule || {})[activeDay] || []);
+            const resultingItems = existingItems.map(item => ({ ...item }));
+
+            pendingChanges.filter(change => change.type === 'edited').forEach(change => {
+                const index = existingItems.findIndex(item =>
+                    item.time === change.originalTime && item.title === change.originalTitle
+                );
+                if (index >= 0) {
+                    resultingItems[index] = { ...change.after };
+                }
+            });
+            pendingChanges.filter(change => change.type === 'added').forEach(change => {
+                resultingItems.push({ ...change.after });
+            });
+
+            pendingChanges.forEach(change => {
+                if (!change.after.title.trim()) {
+                    errors.push(`${change.after.time || '未設定時間'} 的行程標題不能留空。`);
+                    return;
+                }
+
+                const duplicateCount = resultingItems.filter(item =>
+                    item.time === change.after.time && item.title === change.after.title
+                ).length;
+                if (duplicateCount > 1) {
+                    errors.push(`行程重複：${change.after.time} ${change.after.title}`);
+                }
+            });
+
+            return [...new Set(errors)];
+        }
+
+        function validatePreviewChanges() {
+            const confirmBtn = document.getElementById('confirm-sync-btn');
+            const errorElement = document.getElementById('preview-validation-error');
+            const errors = getPreviewValidationErrors();
+            const isValid = pendingChanges.length > 0 && errors.length === 0;
+
+            confirmBtn.disabled = !isValid;
+            confirmBtn.classList.toggle('opacity-50', !isValid);
+            confirmBtn.classList.toggle('cursor-not-allowed', !isValid);
+
+            if (errors.length > 0) {
+                errorElement.innerHTML = errors.map(error => `<div>• ${escapeHtml(error)}</div>`).join('');
+                errorElement.classList.remove('hidden');
+            } else {
+                errorElement.innerHTML = '';
+                errorElement.classList.add('hidden');
+            }
+
+            return errors;
+        }
+
+        window.updatePreviewChange = function(changeIndex, field, value) {
+            if (!['title', 'location', 'desc'].includes(field) || !pendingChanges[changeIndex]) {
+                return;
+            }
+            pendingChanges[changeIndex].after[field] = value;
+            validatePreviewChanges();
+        };
+
+        window.togglePreviewChangeEditing = function(changeIndex) {
+            if (!pendingChanges[changeIndex]) return;
+
+            if (previewEditingIndexes.has(changeIndex)) {
+                previewEditingIndexes.delete(changeIndex);
+            } else {
+                previewEditingIndexes.add(changeIndex);
+            }
+            renderPreviewModal();
+        };
+
         function renderPreviewModal() {
             const container = document.getElementById('preview-list-container');
-            const confirmBtn = document.getElementById('confirm-sync-btn');
             
-            if (itemsToAppend.length === 0) {
-                container.innerHTML = `<p class="text-xs font-bold text-gray-400 text-center py-6">沒有偵測到 DAY ${activeDay} 的任何全新行程 (全部已存在或內容為空)。</p>`;
-                confirmBtn.disabled = true;
-                confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            if (pendingChanges.length === 0) {
+                container.innerHTML = `<p class="text-xs font-bold text-gray-400 text-center py-6">沒有偵測到 DAY ${activeDay} 的新增或編輯內容。</p>`;
             } else {
-                confirmBtn.disabled = false;
-                confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                
                 let html = '';
-                itemsToAppend.forEach((item) => {
+                const sortedChanges = pendingChanges
+                    .map((change, changeIndex) => ({ change, changeIndex }))
+                    .sort((a, b) => {
+                    const timeA = a.change.after.time || '23:59';
+                    const timeB = b.change.after.time || '23:59';
+                    if (timeA === '全日') return -1;
+                    if (timeB === '全日') return 1;
+                    return timeA.localeCompare(timeB);
+                });
+
+                sortedChanges.forEach(({ change, changeIndex }) => {
+                    const item = change.after;
+                    const isAdded = change.type === 'added';
+                    const isEditing = previewEditingIndexes.has(changeIndex);
+                    const labelColorClass = isAdded ? 'text-emerald-800' : 'text-amber-800';
+                    const inputColorClasses = isAdded
+                        ? 'border-emerald-300 focus:ring-emerald-400'
+                        : 'border-amber-300 focus:ring-amber-400';
+                    const editButtonClasses = isAdded
+                        ? 'border-emerald-400 text-emerald-800 hover:bg-emerald-100'
+                        : 'border-amber-400 text-amber-800 hover:bg-amber-100';
+                    const fields = isEditing
+                        ? `
+                            <label class="block text-[10px] font-black ${labelColorClass}">
+                                標題
+                                <input type="text" value="${escapeHtml(item.title)}" oninput="updatePreviewChange(${changeIndex}, 'title', this.value)" class="mt-0.5 w-full rounded-lg border ${inputColorClasses} bg-white px-2 py-1.5 text-xs font-bold text-gray-800 outline-none focus:ring-2">
+                            </label>
+                            <label class="block text-[10px] font-black ${labelColorClass}">
+                                地點
+                                <input type="text" value="${escapeHtml(item.location)}" oninput="updatePreviewChange(${changeIndex}, 'location', this.value)" class="mt-0.5 w-full rounded-lg border ${inputColorClasses} bg-white px-2 py-1.5 text-xs font-bold text-gray-700 outline-none focus:ring-2" placeholder="可留空">
+                            </label>
+                            <label class="block text-[10px] font-black ${labelColorClass}">
+                                詳情
+                                <textarea rows="2" oninput="updatePreviewChange(${changeIndex}, 'desc', this.value)" class="mt-0.5 w-full rounded-lg border ${inputColorClasses} bg-white px-2 py-1.5 text-xs font-bold text-gray-700 outline-none focus:ring-2" placeholder="可留空">${escapeHtml(item.desc)}</textarea>
+                            </label>
+                        `
+                        : `
+                            <div class="font-black text-gray-800 text-sm">${escapeHtml(item.title)}</div>
+                            ${item.location ? `<div class="text-gray-600 font-bold text-[11px]"><i class="fa-solid fa-location-dot text-xmas-red"></i> ${escapeHtml(item.location)}</div>` : ''}
+                            ${item.desc ? `<div class="text-gray-500 font-bold text-[11px]">${escapeHtml(item.desc)}</div>` : ''}
+                        `;
+
                     html += `
-                        <div class="xmas-box-sm p-3 bg-emerald-50/60 border-emerald-300 text-xs space-y-1">
-                            <div class="flex justify-between items-center">
-                                <span class="bg-xmas-green text-white text-[10px] font-black px-2 py-0.5 rounded">DAY ${item.day} | ${item.time}</span>
-                                <span class="text-[10px] font-bold text-emerald-800"><i class="fa-solid fa-plus mr-1"></i>追加至 DAY ${item.day}</span>
+                        <div class="xmas-box-sm p-3 ${isAdded ? 'bg-emerald-50/60 border-emerald-300' : 'bg-amber-50/70 border-amber-400'} text-xs space-y-1.5">
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="${isAdded ? 'bg-xmas-green' : 'bg-amber-600'} text-white text-[10px] font-black px-2 py-0.5 rounded">DAY ${change.day} | ${escapeHtml(item.time)}</span>
+                                <button type="button" onclick="togglePreviewChangeEditing(${changeIndex})" class="rounded-md border bg-white px-2 py-1 text-[10px] font-black ${editButtonClasses}">
+                                    <i class="fa-solid ${isEditing ? 'fa-check' : 'fa-pen'} mr-1"></i>${isEditing ? '完成' : '編輯'}
+                                </button>
                             </div>
-                            <div class="font-black text-gray-800 text-sm mt-1">${item.title}</div>
-                            ${item.location ? `<div class="text-gray-600 font-bold text-[11px]"><i class="fa-solid fa-location-dot text-xmas-red"></i> ${item.location}</div>` : ''}
-                            ${item.desc ? `<div class="text-gray-500 font-bold text-[11px]">${item.desc}</div>` : ''}
+                            ${isAdded ? '' : `<div class="text-[11px] font-bold text-gray-400 line-through">${escapeHtml(change.before.time)} ${escapeHtml(change.before.title)}</div>`}
+                            ${fields}
                         </div>
                     `;
                 });
                 container.innerHTML = html;
             }
 
+            validatePreviewChanges();
             document.getElementById('preview-modal').classList.remove('hidden');
         }
 
         window.closePreviewModal = function() {
             document.getElementById('preview-modal').classList.add('hidden');
             document.getElementById('import-input').value = '';
+            pendingChanges = [];
+            previewEditingIndexes.clear();
         }
 
-        // 安全寫入 Firebase
-        window.confirmAppendToFirebase = async function() {
-            if (itemsToAppend.length === 0) return;
+        // 重新驗證預覽內容後，一次過安全寫入 Firebase
+        window.confirmChangesToFirebase = async function() {
+            if (pendingChanges.length === 0) return;
+            const validationErrors = validatePreviewChanges();
+            if (validationErrors.length > 0) {
+                alert("請先修正預覽中的錯誤。");
+                return;
+            }
 
             try {
                 const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    throw new Error("Firebase 尚未建立行程資料。");
+                }
+
                 const freshData = docSnap.data();
+                const freshDayItems = (freshData.schedule && freshData.schedule[activeDay]) || [];
+                const updatedDayItems = freshDayItems.map(item => ({ ...item }));
 
-                itemsToAppend.forEach(item => {
-                    if (!freshData.schedule[item.day]) {
-                        freshData.schedule[item.day] = [];
+                const edits = pendingChanges.filter(change => change.type === 'edited');
+                const additions = pendingChanges.filter(change => change.type === 'added');
+                const resolvedEdits = edits.map(change => {
+                    const matchingIndexes = updatedDayItems
+                        .map((item, index) => ({ item, index }))
+                        .filter(({ item }) => item.time === change.originalTime && item.title === change.originalTitle);
+
+                    if (matchingIndexes.length !== 1) {
+                        throw new Error(`行程已在預覽後變更，請重新預覽：${change.originalTime} ${change.originalTitle}`);
                     }
-                    freshData.schedule[item.day].push({
-                        time: item.time,
-                        title: item.title,
-                        location: item.location,
-                        desc: item.desc
-                    });
-
-                    freshData.schedule[item.day].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+                    return { change, index: matchingIndexes[0].index };
                 });
 
-                await setDoc(docRef, freshData);
-                alert(`🎉 成功將 ${itemsToAppend.length} 個新行程追加至 DAY ${activeDay}！` );
+                resolvedEdits.forEach(({ change, index }) => {
+                    updatedDayItems[index] = { ...change.after };
+                });
+                edits.forEach(change => {
+                    const matchCount = updatedDayItems.filter(item =>
+                        item.time === change.after.time && item.title === change.after.title
+                    ).length;
+                    if (matchCount > 1) {
+                        throw new Error(`編輯後會產生重複行程，請重新預覽：${change.after.time} ${change.after.title}`);
+                    }
+                });
+                additions.forEach(change => {
+                    const duplicate = updatedDayItems.some(item =>
+                        item.time === change.after.time && item.title === change.after.title
+                    );
+                    if (duplicate) {
+                        throw new Error(`新增行程已存在，請重新預覽：${change.after.time} ${change.after.title}`);
+                    }
+                    updatedDayItems.push({ ...change.after });
+                });
+                updatedDayItems.sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+
+                const updatedData = {
+                    ...freshData,
+                    schedule: {
+                        ...(freshData.schedule || {}),
+                        [activeDay]: updatedDayItems
+                    }
+                };
+
+                await setDoc(docRef, updatedData);
+                alert(`🎉 成功新增 ${additions.length} 個及編輯 ${edits.length} 個 DAY ${activeDay} 行程！`);
                 document.getElementById('import-json-text').value = '';
-                closePreviewModal();
+                window.closePreviewModal();
             } catch (e) {
                 alert("寫入 Firebase 失敗：" + e.message);
             }
