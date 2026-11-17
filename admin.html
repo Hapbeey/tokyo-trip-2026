@@ -258,6 +258,7 @@
         let activeDay = 1;
         let pendingChanges = [];
         const previewEditingIndexes = new Set();
+        const selectedPreviewIndexes = new Set();
         let isJsonExpanded = false;
 
         const dayDatesMap = {
@@ -607,6 +608,7 @@ ${userText}
                 const importedJSON = JSON.parse(jsonText);
                 pendingChanges = [];
                 previewEditingIndexes.clear();
+                selectedPreviewIndexes.clear();
                 const addedSchedule = importedJSON.new_items || importedJSON.schedule;
                 const updatedSchedule = importedJSON.updated_items || importedJSON.edited_items;
 
@@ -755,6 +757,7 @@ ${userText}
                     }
                 });
 
+                pendingChanges.forEach((_, index) => selectedPreviewIndexes.add(index));
                 renderPreviewModal();
             } catch (err) {
                 alert(`解析${sourceLabel}失敗：${err.message}`);
@@ -773,10 +776,15 @@ ${userText}
 
         function getPreviewValidationErrors() {
             const errors = [];
+            const selectedChanges = pendingChanges.filter((_, index) => selectedPreviewIndexes.has(index));
+            if (selectedChanges.length === 0) {
+                return ["請至少選擇一個要同步的行程變更。"];
+            }
+
             const existingItems = ((currentFirebaseData.schedule || {})[activeDay] || []);
             const resultingItems = existingItems.map(item => ({ ...item }));
 
-            pendingChanges.filter(change => change.type === 'edited').forEach(change => {
+            selectedChanges.filter(change => change.type === 'edited').forEach(change => {
                 const index = existingItems.findIndex(item =>
                     item.time === change.originalTime && item.title === change.originalTitle
                 );
@@ -784,11 +792,11 @@ ${userText}
                     resultingItems[index] = { ...change.after };
                 }
             });
-            pendingChanges.filter(change => change.type === 'added').forEach(change => {
+            selectedChanges.filter(change => change.type === 'added').forEach(change => {
                 resultingItems.push({ ...change.after });
             });
 
-            pendingChanges.forEach(change => {
+            selectedChanges.forEach(change => {
                 if (!change.after.title.trim()) {
                     errors.push(`${change.after.time || '未設定時間'} 的行程標題不能留空。`);
                     return;
@@ -834,6 +842,17 @@ ${userText}
             validatePreviewChanges();
         };
 
+        window.togglePreviewChangeSelection = function(changeIndex, isSelected) {
+            if (!pendingChanges[changeIndex]) return;
+
+            if (isSelected) {
+                selectedPreviewIndexes.add(changeIndex);
+            } else {
+                selectedPreviewIndexes.delete(changeIndex);
+            }
+            renderPreviewModal();
+        };
+
         window.togglePreviewChangeEditing = function(changeIndex) {
             if (!pendingChanges[changeIndex]) return;
 
@@ -866,6 +885,7 @@ ${userText}
                     const item = change.after;
                     const isAdded = change.type === 'added';
                     const isEditing = previewEditingIndexes.has(changeIndex);
+                    const isSelected = selectedPreviewIndexes.has(changeIndex);
                     const labelColorClass = isAdded ? 'text-emerald-800' : 'text-amber-800';
                     const inputColorClasses = isAdded
                         ? 'border-emerald-300 focus:ring-emerald-400'
@@ -895,9 +915,12 @@ ${userText}
                         `;
 
                     html += `
-                        <div class="xmas-box-sm p-3 ${isAdded ? 'bg-emerald-50/60 border-emerald-300' : 'bg-amber-50/70 border-amber-400'} text-xs space-y-1.5">
+                        <div class="xmas-box-sm p-3 ${isAdded ? 'bg-emerald-50/60 border-emerald-300' : 'bg-amber-50/70 border-amber-400'} ${isSelected ? '' : 'opacity-60'} text-xs space-y-1.5">
                             <div class="flex justify-between items-center gap-2">
-                                <span class="${isAdded ? 'bg-xmas-green' : 'bg-amber-600'} text-white text-[10px] font-black px-2 py-0.5 rounded">DAY ${change.day} | ${escapeHtml(item.time)}</span>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="togglePreviewChangeSelection(${changeIndex}, this.checked)" class="h-4 w-4 accent-emerald-700 cursor-pointer" aria-label="選取此行程變更">
+                                    <span class="${isAdded ? 'bg-xmas-green' : 'bg-amber-600'} text-white text-[10px] font-black px-2 py-0.5 rounded">DAY ${change.day} | ${escapeHtml(item.time)}</span>
+                                </div>
                                 <button type="button" onclick="togglePreviewChangeEditing(${changeIndex})" class="rounded-md border bg-white px-2 py-1 text-[10px] font-black ${editButtonClasses}">
                                     <i class="fa-solid ${isEditing ? 'fa-check' : 'fa-pen'} mr-1"></i>${isEditing ? '完成' : '編輯'}
                                 </button>
@@ -919,6 +942,7 @@ ${userText}
             document.getElementById('import-input').value = '';
             pendingChanges = [];
             previewEditingIndexes.clear();
+            selectedPreviewIndexes.clear();
         }
 
         // 重新驗證預覽內容後，一次過安全寫入 Firebase
@@ -940,8 +964,9 @@ ${userText}
                 const freshDayItems = (freshData.schedule && freshData.schedule[activeDay]) || [];
                 const updatedDayItems = freshDayItems.map(item => ({ ...item }));
 
-                const edits = pendingChanges.filter(change => change.type === 'edited');
-                const additions = pendingChanges.filter(change => change.type === 'added');
+                const selectedChanges = pendingChanges.filter((_, index) => selectedPreviewIndexes.has(index));
+                const edits = selectedChanges.filter(change => change.type === 'edited');
+                const additions = selectedChanges.filter(change => change.type === 'added');
                 const resolvedEdits = edits.map(change => {
                     const matchingIndexes = updatedDayItems
                         .map((item, index) => ({ item, index }))
