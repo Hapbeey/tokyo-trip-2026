@@ -639,6 +639,7 @@
         let pendingDeleteId = null;
         let pendingDeleteType = 'todo';
         let activeSubChecklist = 'todo';
+        let editingChecklistItem = null;
         let currentWeatherCity = 'tokyo';
         const weatherCache = {};
         const weatherFetchPromises = {};
@@ -758,6 +759,7 @@
 
         window.switchSubChecklist = function(type) {
             activeSubChecklist = type;
+            editingChecklistItem = null;
             const btnTodo = document.getElementById('subtab-todo');
             const btnLuggage = document.getElementById('subtab-luggage');
             const secTodo = document.getElementById('sub-section-todo');
@@ -795,6 +797,16 @@
             } catch (e) {
                 return false;
             }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            })[char]);
         }
 
         function renderScheduleTabs() {
@@ -1185,15 +1197,35 @@
             } else {
                 visibleTodo.forEach(item => {
                     const isChecked = !!checkedTodo[item.id];
+                    const isEditing = editingChecklistItem?.type === 'todo' && editingChecklistItem.id === item.id;
                     const div = document.createElement('div');
                     div.className = `xmas-box-sm p-3.5 flex items-center justify-between cursor-pointer transition ${isChecked ? 'bg-emerald-50/50 line-through text-gray-400' : 'bg-white'}`;
-                    div.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-xmas-green cursor-pointer" onchange="toggleCheckItem('todo', ${item.id})">
-                            <span class="font-bold text-sm">${item.text}</span>
-                        </div>
-                        <button onclick="openChecklistDeleteModal(${item.id}, '${item.text.replace(/'/g, "\\'")}', 'todo'); event.stopPropagation();" class="text-xs text-gray-400 hover:text-xmas-red font-bold px-2 py-1">移除</button>
-                    `;
+                    div.innerHTML = isEditing
+                        ? `
+                            <div class="flex items-center gap-2 w-full">
+                                <input id="checklist-edit-todo-${item.id}" type="text" value="${escapeHtml(item.text)}" onkeydown="if (event.key === 'Enter') saveChecklistEdit(); if (event.key === 'Escape') cancelChecklistEdit();" class="flex-1 rounded-lg border border-emerald-400 bg-white px-2.5 py-1.5 text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-emerald-300">
+                                <button onclick="saveChecklistEdit()" class="p-1 text-emerald-700 hover:text-emerald-900" title="儲存" aria-label="儲存">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button onclick="cancelChecklistEdit()" class="p-1 text-gray-400 hover:text-gray-700" title="取消" aria-label="取消">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        `
+                        : `
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-xmas-green cursor-pointer" onchange="toggleCheckItem('todo', ${item.id})">
+                                <span class="font-bold text-sm">${escapeHtml(item.text)}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button onclick="startChecklistEdit('todo', ${item.id})" class="p-1 text-xs text-blue-600 transition-colors hover:text-blue-800 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="編輯" aria-label="編輯">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button onclick="openChecklistDeleteModal(${item.id}, 'todo')" class="p-1 text-xs text-gray-400 transition-colors hover:text-xmas-red rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500" title="刪除" aria-label="刪除">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        `;
                     todoContainer.appendChild(div);
                 });
             }
@@ -1210,15 +1242,35 @@
             } else {
                 visibleLuggage.forEach(item => {
                     const isChecked = !!checkedLuggage[item.id];
+                    const isEditing = editingChecklistItem?.type === 'luggage' && editingChecklistItem.id === item.id;
                     const div = document.createElement('div');
                     div.className = `xmas-box-sm p-3.5 flex items-center justify-between cursor-pointer transition ${isChecked ? 'bg-emerald-50/50 line-through text-gray-400' : 'bg-white'}`;
-                    div.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-emerald-700 cursor-pointer" onchange="toggleCheckItem('luggage', ${item.id})">
-                            <span class="font-bold text-sm">${item.text}</span>
-                        </div>
-                        <button onclick="openChecklistDeleteModal(${item.id}, '${item.text.replace(/'/g, "\\'")}', 'luggage'); event.stopPropagation();" class="text-xs text-gray-400 hover:text-xmas-red font-bold px-2 py-1">移除</button>
-                    `;
+                    div.innerHTML = isEditing
+                        ? `
+                            <div class="flex items-center gap-2 w-full">
+                                <input id="checklist-edit-luggage-${item.id}" type="text" value="${escapeHtml(item.text)}" onkeydown="if (event.key === 'Enter') saveChecklistEdit(); if (event.key === 'Escape') cancelChecklistEdit();" class="flex-1 rounded-lg border border-emerald-400 bg-white px-2.5 py-1.5 text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-emerald-300">
+                                <button onclick="saveChecklistEdit()" class="p-1 text-emerald-700 hover:text-emerald-900" title="儲存" aria-label="儲存">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button onclick="cancelChecklistEdit()" class="p-1 text-gray-400 hover:text-gray-700" title="取消" aria-label="取消">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        `
+                        : `
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 accent-emerald-700 cursor-pointer" onchange="toggleCheckItem('luggage', ${item.id})">
+                                <span class="font-bold text-sm">${escapeHtml(item.text)}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button onclick="startChecklistEdit('luggage', ${item.id})" class="p-1 text-xs text-blue-600 transition-colors hover:text-blue-800 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="編輯" aria-label="編輯">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button onclick="openChecklistDeleteModal(${item.id}, 'luggage')" class="p-1 text-xs text-gray-400 transition-colors hover:text-xmas-red rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500" title="刪除" aria-label="刪除">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        `;
                     luggageContainer.appendChild(div);
                 });
             }
@@ -1230,6 +1282,41 @@
             checked[id] = !checked[id];
             saveLocalState(stateKey, checked);
             renderChecklists();
+        }
+
+        window.startChecklistEdit = function(type, id) {
+            const listKey = type === 'todo' ? 'checklistItems' : 'luggageItems';
+            if (!(appData[listKey] || []).some(item => item.id === id)) return;
+
+            editingChecklistItem = { type, id };
+            renderChecklists();
+            setTimeout(() => document.getElementById(`checklist-edit-${type}-${id}`)?.focus(), 0);
+        }
+
+        window.cancelChecklistEdit = function() {
+            editingChecklistItem = null;
+            renderChecklists();
+        }
+
+        window.saveChecklistEdit = function() {
+            if (!editingChecklistItem) return;
+
+            const { type, id } = editingChecklistItem;
+            const input = document.getElementById(`checklist-edit-${type}-${id}`);
+            const text = input?.value.trim() || '';
+            if (!text) {
+                alert('清單項目不能留空！');
+                return;
+            }
+
+            const listKey = type === 'todo' ? 'checklistItems' : 'luggageItems';
+            const item = (appData[listKey] || []).find(entry => entry.id === id);
+            if (!item) return;
+
+            item.text = text;
+            editingChecklistItem = null;
+            renderChecklists();
+            saveData();
         }
 
         window.addChecklistItem = function(type) {
@@ -1248,10 +1335,14 @@
             saveData();
         }
 
-        window.openChecklistDeleteModal = function(id, text, type) {
+        window.openChecklistDeleteModal = function(id, type) {
+            const listKey = type === 'todo' ? 'checklistItems' : 'luggageItems';
+            const item = (appData[listKey] || []).find(entry => entry.id === id);
+            if (!item) return;
+
             pendingDeleteId = id;
             pendingDeleteType = type;
-            document.getElementById('delete-modal-text').innerText = `確定要移除「${text}」嗎？`;
+            document.getElementById('delete-modal-text').innerText = `確定要移除「${item.text}」嗎？`;
             document.getElementById('delete-cloud-checkbox').checked = false;
             document.getElementById('checklist-delete-modal').classList.remove('hidden');
         }
