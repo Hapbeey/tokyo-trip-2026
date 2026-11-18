@@ -42,6 +42,24 @@
 </head>
 <body class="pb-16 selection:bg-red-200">
 
+    <div id="auth-gate" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#F9F6F0] p-4">
+        <form id="auth-form" class="xmas-box w-full max-w-sm space-y-4 p-6">
+            <div class="text-center">
+                <div class="mb-2 text-4xl">🔐</div>
+                <h2 class="text-xl font-black text-xmas-green">行程管理後台</h2>
+                <p class="mt-1 text-xs font-bold text-gray-500">請輸入旅行網站密碼</p>
+            </div>
+            <input id="auth-password" type="password" autocomplete="current-password" required
+                class="w-full xmas-box-sm bg-gray-50 px-3 py-2.5 text-center font-bold outline-none"
+                placeholder="Password">
+            <p id="auth-error" class="hidden text-center text-xs font-bold text-xmas-red"></p>
+            <button id="auth-submit" type="submit"
+                class="xmas-button w-full bg-xmas-green py-2.5 font-black text-white">
+                <i class="fa-solid fa-lock mr-1"></i> 登入
+            </button>
+        </form>
+    </div>
+
     <!-- 頂部導航 -->
     <header class="sticky top-0 z-40 bg-[#F9F6F0]/90 backdrop-blur-md border-b-2 border-xmas-green py-3 px-4 shadow-sm">
         <div class="max-w-md mx-auto flex justify-between items-center">
@@ -239,6 +257,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyAQJatKRC34MbBlyY7pmhQdluf0qKNShJg",
@@ -251,6 +270,8 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+        const authEmail = "alexapp1023@gmail.com";
         const docRef = doc(db, "trips", "tokyo_2026");
         
         const syncStatus = document.getElementById('sync-status');
@@ -394,20 +415,62 @@
             updateJsonCodeBlock();
         }
 
-        // 實時監聽 Firebase 資料並渲染 UI
-        onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                currentFirebaseData = docSnap.data();
-                syncStatus.innerHTML = `<i class="fa-solid fa-cloud mr-1 text-emerald-600"></i> 已雲端同步`;
-                syncStatus.className = "text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 xmas-box-sm flex items-center";
-            } else {
-                syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 無資料`;
+        let unsubscribeSync = null;
+
+        function startSync() {
+            if (unsubscribeSync) return;
+
+            unsubscribeSync = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    currentFirebaseData = docSnap.data();
+                    syncStatus.innerHTML = `<i class="fa-solid fa-cloud mr-1 text-emerald-600"></i> 已雲端同步`;
+                    syncStatus.className = "text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 xmas-box-sm flex items-center";
+                } else {
+                    syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 無資料`;
+                }
+                renderScheduleTabs();
+                renderScheduleContent();
+                updateSelectedDayLabels();
+            }, (error) => {
+                console.error("Sync error:", error);
+                syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 離線模式`;
+            });
+        }
+
+        const authGate = document.getElementById('auth-gate');
+        const authForm = document.getElementById('auth-form');
+        const authPassword = document.getElementById('auth-password');
+        const authError = document.getElementById('auth-error');
+        const authSubmit = document.getElementById('auth-submit');
+
+        authForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            authError.classList.add('hidden');
+            authSubmit.disabled = true;
+            authSubmit.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> 登入中...`;
+
+            try {
+                await signInWithEmailAndPassword(auth, authEmail, authPassword.value);
+                authPassword.value = '';
+            } catch (error) {
+                console.error("Login error:", error);
+                authError.textContent = error.code === 'auth/too-many-requests'
+                    ? '嘗試次數太多，請稍後再試。'
+                    : '密碼不正確，請重新輸入。';
+                authError.classList.remove('hidden');
+            } finally {
+                authSubmit.disabled = false;
+                authSubmit.innerHTML = `<i class="fa-solid fa-lock mr-1"></i> 登入`;
             }
-            renderScheduleTabs();
-            renderScheduleContent();
-            updateSelectedDayLabels();
-        }, (err) => {
-            syncStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> 離線模式`;
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user?.email === authEmail) {
+                authGate.classList.add('hidden');
+                startSync();
+            } else {
+                authGate.classList.remove('hidden');
+            }
         });
 
         function isValidUrl(str) {
